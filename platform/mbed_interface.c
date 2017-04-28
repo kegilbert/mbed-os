@@ -81,6 +81,18 @@ WEAK int mbed_uid(char *uid) {
 }
 #endif
 
+static bool manual_mac_address_set = false;
+static char manual_mac_address[12];
+
+void mbed_set_mac_address(const char *mac) {
+    for (int i=0; i<6; ++i) {
+        int byte;
+        sscanf(mac, "%2x", &byte);
+        manual_mac_address[i] = byte;
+        mac += 2;
+    }
+}
+
 WEAK void mbed_mac_address(char *mac) {
 #if DEVICE_SEMIHOST
     char uid[DEVICE_ID_LENGTH + 1];
@@ -101,12 +113,22 @@ WEAK void mbed_mac_address(char *mac) {
         mac[0] &= ~0x01;    // reset the IG bit in the address; see IEE 802.3-2002, Section 3.2.3(b)
     } else {  // else return a default MAC
 #endif
+    if(manual_mac_address_set) {
+        char *p = manual_mac_address;
+        for (int i=0; i<6; ++i) {
+            int byte;
+            sscanf(p, "%2x", &byte);
+            mac[i] = byte;
+            p += 2;
+        }
+    } else {
         mac[0] = 0x00;
         mac[1] = 0x02;
         mac[2] = 0xF7;
         mac[3] = 0xF0;
         mac[4] = 0x00;
         mac[5] = 0x00;
+    }
 #if DEVICE_SEMIHOST
     }
 #endif

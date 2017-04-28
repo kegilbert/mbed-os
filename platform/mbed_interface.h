@@ -108,6 +108,9 @@ int mbed_interface_uid(char *uid);
  */
 void mbed_mac_address(char *mac);
 
+//TODO:DOC
+void mbed_set_mac_address(const char *mac);
+
 /** Cause the mbed to flash the BLOD (Blue LEDs Of Death) sequence
  */
 void mbed_die(void);
