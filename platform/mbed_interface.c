@@ -91,6 +91,7 @@ void mbed_set_mac_address(const char *mac) {
         manual_mac_address[i] = byte;
         mac += 2;
     }
+    manual_mac_address_set = true;
 }
 
 WEAK void mbed_mac_address(char *mac) {
