@@ -81,8 +81,8 @@ WEAK int mbed_uid(char *uid) {
 }
 #endif
 
-static bool manual_mac_address_set = false;
-static char manual_mac_address[12];
+static uint8_t manual_mac_address_set = 0;
+static char manual_mac_address[6];
 
 void mbed_set_mac_address(const char *mac) {
     for (int i=0; i<6; ++i) {
@@ -91,7 +91,7 @@ void mbed_set_mac_address(const char *mac) {
         manual_mac_address[i] = byte;
         mac += 2;
     }
-    manual_mac_address_set = true;
+    manual_mac_address_set = 1;
 }
 
 WEAK void mbed_mac_address(char *mac) {
