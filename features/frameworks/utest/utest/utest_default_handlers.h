@@ -24,12 +24,10 @@
 #include <stdio.h>
 #include "utest/utest_types.h"
 
-
 namespace utest {
 /** \addtogroup frameworks */
 /** @{*/
 namespace v1 {
-
     /** Default handler hint.
      *
      * Use this handler to indicate the you want the default handler to be called.
@@ -38,6 +36,9 @@ namespace v1 {
      */
     static const struct
     {
+        ///@cond IGNORE
+        // Doxygen can't parse these implicit conversion operators properly, remove from
+        // doc build
         operator test_setup_handler_t()    const { return test_setup_handler_t(1); }
         operator test_teardown_handler_t() const { return test_teardown_handler_t(1); }
         operator test_failure_handler_t()  const { return test_failure_handler_t(1); }
@@ -45,6 +46,7 @@ namespace v1 {
         operator case_setup_handler_t()    const { return case_setup_handler_t(1); }
         operator case_teardown_handler_t() const { return case_teardown_handler_t(1); }
         operator case_failure_handler_t()  const { return case_failure_handler_t(1); }
+        ///@endcond
     } default_handler;
 
     /** Ignore handler hint.
@@ -55,6 +57,9 @@ namespace v1 {
      */
     static const struct
     {
+        ///@cond IGNORE
+        // Doxygen can't parse these implicit conversion operators properly, remove from
+        // doc build
         operator case_handler_t()            const { return case_handler_t(NULL); }
         operator case_control_handler_t()    const { return case_control_handler_t(NULL); }
         operator case_call_count_handler_t() const { return case_call_count_handler_t(NULL); }
@@ -66,6 +71,7 @@ namespace v1 {
         operator case_setup_handler_t()    const { return case_setup_handler_t(NULL); }
         operator case_teardown_handler_t() const { return case_teardown_handler_t(NULL); }
         operator case_failure_handler_t()  const { return case_failure_handler_t(NULL); }
+        ///@endcond
     } ignore_handler;
 
     /** A table of handlers.
