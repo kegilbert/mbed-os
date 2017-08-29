@@ -39,7 +39,7 @@
       ],
       "test-repo-source": "mbed",
       "features" : [],
-      "targets" : ["K64F", "NUCLEO_F429ZI"],
+      "targets" : ["K64F", "K66F", "K22F", "NUCLEO_F429ZI"],
       "toolchains" : ["GCC_ARM", "ARM"],
       "exporters": [],
       "compile" : true,
