@@ -124,7 +124,7 @@
       ],
       "test-repo-source": "github",
       "features" : [],
-      "targets" : [],
+      "targets" : ["K64F", "K66F", "K22F", "NUCLEO_F429ZI"],
       "toolchains" : [],
       "exporters": [],
       "compile" : false,
