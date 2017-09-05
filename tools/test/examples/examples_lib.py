@@ -351,6 +351,7 @@ def compile_repos(config, toolchains, targets, examples):
 
                 print("====================DEBUG==================")
                 print(os.listdir('.'))
+                print(os.listdir('mbed-os/tools/profiles'))
                 print(os.getcwd())
                 # Check that the target, toolchain and features combinations are valid and return a
                 # list of valid combinations to work through
@@ -359,7 +360,7 @@ def compile_repos(config, toolchains, targets, examples):
                                                                 example['features']):
                     print("Compiling %s for %s, %s" % (name, target, toolchain))
                     proc = subprocess.Popen(["mbed-cli", "compile", "-t", toolchain,
-                                             "-m", target, "-v", "--profile ../mbed-os/tools/profiles/debug.json"])
+                                             "-m", target, "--profile", "mbed-os/tools/profiles/debug.json", "-v"])
                     proc.wait()
                     example_summary = "{} {} {}".format(name, target, toolchain)
                     if proc.returncode:
