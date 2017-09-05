@@ -349,6 +349,7 @@ def compile_repos(config, toolchains, targets, examples):
                 name = basename(repo_info['repo'])
                 os.chdir(name)
 
+                print(os.listdir('.'))
                 # Check that the target, toolchain and features combinations are valid and return a
                 # list of valid combinations to work through
                 for target, toolchain in target_cross_toolchain(valid_choices(example['targets'], targets),
