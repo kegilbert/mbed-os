@@ -356,7 +356,7 @@ def compile_repos(config, toolchains, targets, examples):
                                                                 example['features']):
                     print("Compiling %s for %s, %s" % (name, target, toolchain))
                     proc = subprocess.Popen(["mbed-cli", "compile", "-t", toolchain,
-                                             "-m", target, "-v"])
+                                             "-m", target, "-v", "--profile mbed-os/tools/profiles/debug.json"])
                     proc.wait()
                     example_summary = "{} {} {}".format(name, target, toolchain)
                     if proc.returncode:
