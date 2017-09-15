@@ -7,11 +7,11 @@
         },
         "ipv6-enabled": {
             "help": "Enable IPv6",
-            "value": false
+            "value": true
         },
         "ip-ver-pref": {
             "help": "On dual-stack system the preferred stack: 4 for IPv4 and 6 for IPv6",
-            "value": 4
+            "value": 6
         },
         "addr-timeout": {
             "help": "On dual-stack system how long to additionally wait for other stack's address in seconds",
