@@ -32,6 +32,7 @@
 #include "lwip/tcp.h"
 #include "lwip/ip.h"
 #include "lwip/mld6.h"
+#include "lwip/igmp.h"
 #include "lwip/dns.h"
 #include "lwip/udp.h"
 #include "lwip_errno.h"
@@ -1156,71 +1157,39 @@ static nsapi_error_t mbed_lwip_setsockopt(nsapi_stack_t *stack, nsapi_socket_t h
             if (imr->imr_interface.version != NSAPI_UNSPEC && imr->imr_interface.version != imr->imr_multiaddr.version) {
                 return NSAPI_ERROR_PARAMETER;
             }
-            
+
             ip_addr_t if_addr;
             ip_addr_t multi_addr;
-            
+
             /* Convert the group address */
             if (!convert_mbed_addr_to_lwip(&multi_addr, &imr->imr_multiaddr)) {
                 return NSAPI_ERROR_PARAMETER;
             }
-            
+
             /* Convert the interface address, or make sure it's the correct sort of "any" */
             if (imr->imr_interface.version != NSAPI_UNSPEC) {
                 if (!convert_mbed_addr_to_lwip(&if_addr, &imr->imr_interface)) {
                     return NSAPI_ERROR_PARAMETER;
                 }
             } else {
-                ip_addr_set_any(IP_IS_V6(&if_addr), &imr->imr_interface);
+                ip_addr_set_any(IP_IS_V6(&if_addr), &if_addr);
             }
-            
+
             igmp_err = NSAPI_ERROR_UNSUPPORTED;
             #if LWIP_IPV4
             if (IP_IS_V4(&if_addr)) {
                 igmp_err = (NSAPI_ADD_MEMBERSHIP ?  igmp_joingroup : igmp_leavegroup)
                                         (ip_2_ip4(&if_addr), ip_2_ip4(&multi_addr));
             }
-            #endif 
+            #endif
             #if LWIP_IPV6
             if (IP_IS_V6(&if_addr)) {
                 igmp_err = (NSAPI_ADD_MEMBERSHIP ? mld6_joingroup : mld6_leavegroup)
                                         (ip_2_ip6(&if_addr), ip_2_ip6(&multi_addr));
             }
-            #endif         
+            #endif
 
-
-        /*     
-            if (optlen != sizeof(nsapi_ip_mreq_t)) {
-                return NSAPI_ERROR_UNSUPPORTED;
-            }
-
-            err_t igmp_err;
-            nsapi_ip_mreq_t *imr = optval;
-
-            ip_addr_t if_addr;
-            ip_addr_t multi_addr;
-
-            //nsapi_addr_to_ip_addr(&multi_addr, &imr->imr_multiaddr);
-            //nsapi_addr_to_ip_addr(&if_addr, &imr->imr_interface);
-
-            if (optname == NSAPI_ADD_MEMBERSHIP) {
-#if LWIP_IPV6
-                igmp_err = mld6_joingroup(&if_addr, &multi_addr);
-#else
-                igmp_err = igmp_joingroup(&if_addr, &multi_addr);
-#endif
-            } else {
-#if LWIP_IPV6
-                igmp_err = mld6_leavegroup(&if_addr, &multi_addr);
-#else      
-                igmp_err = igmp_leavegroup(&if_addr, &multi_addr);
-#endif     
-            }
-            if (igmp_err != ERR_OK) {
-                return mbed_lwip_err_remap(EADDRNOTAVAIL);
-            }
-            return 0;
-        */
+            return igmp_err;
          }
 
         default:

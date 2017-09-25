@@ -290,11 +290,11 @@ struct linger {
 #define IP_DROP_MEMBERSHIP 4
 
 typedef struct ip_mreq {
-    struct in_addr imr_multiaddr; /* IP multicast address of group */
-    struct in_addr imr_interface; /* local IP address of interface */
+    nsapi_addr_t imr_multiaddr; /* IP multicast address of group */
+    nsapi_addr_t imr_interface; /* local IP address of interface */
 } ip_mreq;
-#endif /* LWIP_IGMP */
 
+#endif /* LWIP_IGMP */
 /*
  * The Type of Service provides an indication of the abstract
  * parameters of the quality of service desired.  These parameters are
