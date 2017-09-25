@@ -306,8 +306,6 @@ mld6_joingroup(const ip6_addr_t *srcaddr, const ip6_addr_t *groupaddr)
   err_t         err = ERR_VAL; /* no matching interface */
   struct netif *netif;
 
-  printf("%x %x %x %x\r\n", groupaddr->addr[0], groupaddr->addr[1], groupaddr->addr[2], groupaddr->addr[3]);
-
   /* loop through netif's */
   netif = netif_list;
   while (netif != NULL) {
