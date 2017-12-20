@@ -34,6 +34,14 @@ extern "C" {
 
 using namespace mbed;
 
+static const ticker_data_t *const cpu_usage_ticker = get_lp_ticker_data();
+static uint32_t idle_time = 0;
+
+extern uint32_t mbed_time_idle(void)
+{
+    return idle_time;
+}
+
 #ifdef MBED_TICKLESS
 
 #include "rtos/TARGET_CORTEX/SysTimer.h"
@@ -98,6 +106,7 @@ static void default_idle_hook(void)
     uint32_t elapsed_ticks = 0;
 
     core_util_critical_section_enter();
+    uint32_t start = ticker_read_us(cpu_usage_ticker);
     uint32_t ticks_to_sleep = svcRtxKernelSuspend();
     if (ticks_to_sleep) {
         os_timer->schedule_tick(ticks_to_sleep);
@@ -109,6 +118,8 @@ static void default_idle_hook(void)
         elapsed_ticks = os_timer->update_tick();
     }
     svcRtxKernelResume(elapsed_ticks);
+    uint32_t end = ticker_read_us(cpu_usage_ticker);
+    idle_time += end - start;
     core_util_critical_section_exit();
 }
 
@@ -126,9 +137,12 @@ static void default_idle_hook(void)
 {
     // critical section to complete sleep with locked deepsleep
     core_util_critical_section_enter();
+    uint32_t start = ticker_read_us(cpu_usage_ticker);
     sleep_manager_lock_deep_sleep();
     sleep();
     sleep_manager_unlock_deep_sleep();
+    uint32_t end = ticker_read_us(cpu_usage_ticker);
+    idle_time += end - start;
     core_util_critical_section_exit();
 }
 
