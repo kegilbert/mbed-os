@@ -22,7 +22,7 @@
 using namespace mbed;
 
 extern uint32_t mbed_time_idle(void);
-    
+
 namespace rtos {
 /** \addtogroup rtos */
 /** @{*/
@@ -30,42 +30,56 @@ namespace rtos {
  * \defgroup CpuUsage CPU Usage class
  * @{
  */
-    
+
+typedef struct cpu_usage_stats {
+    uint32_t usage;
+    uint32_t mean_usage;
+    uint32_t variance;
+} cpu_usage_stats_t;
+
 class CpuUsage : private mbed::NonCopyable<CpuUsage> {
 public:
 
-    /** Get the current CPU usage. 
+    /** Get the current CPU usage.
      *  CPU Usage is measured is mesaured using time spent in sleeping in specified
      *  sample time period.
      *
      *  @params sample_time - CPU usage is measured every x sample_time in msecs
      */
-    CpuUsage(uint32_t sample_time = 1000) : _sample_time(sample_time), _usage(0) {
+    CpuUsage(uint32_t sample_time = 1000, uint32_t record_window_length = 10) : _sample_time(sample_time), _record_window_length(record_window_length) {
         _prev_time_idle = mbed_time_idle();
         _timer.attach_us(callback(this, &CpuUsage::calculate_cpu_usage), (_sample_time*1000));
     }
-    
+
     ~CpuUsage() {
     }
-    
-    uint32_t get_cpu_usage() const {
-        return _usage;
+
+    cpu_usage_stats_t get_cpu_usage_stats() const {
+        return _usage_stats;
     }
 
 private:
     uint32_t _sample_time;
     uint32_t _prev_time_idle;
+    uint32_t _record_index;
+    uint32_t _record_window_length;
     LowPowerTicker _timer;
-    uint32_t _usage;
+    cpu_usage_stats_t _usage_stats;
+
 
     void calculate_cpu_usage(void) {
         uint32_t time_idle = mbed_time_idle();
         if ( time_idle < _prev_time_idle) {
-            _usage = 100 - (((~0) - _prev_time_idle) + time_idle) / 10000;
+            _usage_stats.usage = 100 - (((~0) - _prev_time_idle) + time_idle) / 10000;
         } else {
-            _usage = 100 - (time_idle - _prev_time_idle) / 10000;
+            _usage_stats.usage = 100 - (time_idle - _prev_time_idle) / 10000;
         }
         _prev_time_idle = time_idle;
+
+        /* Calculate mean usage and variance */
+        _usage_stats.mean_usage = (_usage_stats.mean_usage * 0.9) + (_usage_stats.usage * 0.1);
+        _record_index =  (_record_index > _record_window_length) ? _record_window_length :
+                                                                   _record_index + 1;
     }
 };
 
