@@ -32,9 +32,9 @@ namespace rtos {
  */
 
 typedef struct cpu_usage_stats {
-    uint32_t usage;
-    uint32_t mean_usage;
-    uint32_t variance;
+    float usage;
+    float mean_usage;
+    float variance;
 } cpu_usage_stats_t;
 
 class CpuUsage : private mbed::NonCopyable<CpuUsage> {
@@ -77,6 +77,10 @@ private:
         _prev_time_idle = time_idle;
 
         /* Calculate mean usage and variance */
+        /* TODO: Make alpha value configurable */
+        _usage_stats.variance = (_usage_stats.variance * 0.9/*alpha constant*/) +
+                                    (abs(_usage_stats.usage - _usage_stats.mean_usage) * 0.1/*1-alpha*/);
+
         _usage_stats.mean_usage = (_usage_stats.mean_usage * 0.9) + (_usage_stats.usage * 0.1);
         _record_index =  (_record_index > _record_window_length) ? _record_window_length :
                                                                    _record_index + 1;
