@@ -1,7 +1,7 @@
 /* Socket
  * Copyright (c) 2015 ARM Limited
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * LiceNsed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -18,8 +18,15 @@
 #include "Timer.h"
 #include "mbed_assert.h"
 
+#define TCP_EVENT           "UDP_Events"
+#define READ_FLAG           0x1u
+#define WRITE_FLAG          0x2u
+
+std::map<UDPSocket*, uint64_t> UDPSocket::udp_socket_to_bytes_sent;
+
 UDPSocket::UDPSocket()
 {
+    udp_socket_to_bytes_sent[this] = 0;
 }
 
 UDPSocket::~UDPSocket()
@@ -69,6 +76,8 @@ nsapi_size_or_error_t UDPSocket::sendto(const SocketAddress &address, const void
         nsapi_size_or_error_t sent = _stack->socket_sendto(_socket, address, data, size);
         if ((0 == _timeout) || (NSAPI_ERROR_WOULD_BLOCK != sent)) {
             ret = sent;
+            /* TODO: Instrument bytes sent here */
+            udp_socket_to_bytes_sent[this] += sent;
             break;
         } else {
             uint32_t flag;
