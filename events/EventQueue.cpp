@@ -19,7 +19,7 @@
 #include "mbed.h"
 
 
-EventQueue::EventQueue(unsigned event_size, unsigned char *event_pointer) {
+EventQueue::EventQueue(unsigned event_size, unsigned char *event_pointer) : equeue_alloc_overflows(0) {
     if (!event_pointer) {
         equeue_create(&_equeue, event_size);
     } else {
