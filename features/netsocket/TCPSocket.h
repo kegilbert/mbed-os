@@ -24,7 +24,8 @@
 #include "netsocket/NetworkStack.h"
 #include "netsocket/NetworkInterface.h"
 #include "rtos/EventFlags.h"
-
+#include <stdint.h>
+#include <map>
 
 /** TCP socket connection
  */
@@ -82,7 +83,7 @@ public:
      *  @return         0 on success, negative error code on failure
      */
     nsapi_error_t connect(const SocketAddress &address);
-    
+
     /** Send data over a TCP socket
      *
      *  The socket must be connected to a remote host. Returns the number of
@@ -98,7 +99,7 @@ public:
      *                  code on failure
      */
     nsapi_size_or_error_t send(const void *data, nsapi_size_t size);
-    
+
     /** Receive data over a TCP socket
      *
      *  The socket must be connected to a remote host. Returns the number of
@@ -117,6 +118,16 @@ public:
      */
     nsapi_size_or_error_t recv(void *data, nsapi_size_t size);
 
+    /**
+     *  Get number of TCP bytes sent aggregated across all TCP sockets.
+     */
+    static uint32_t get_tcp_bytes_sent(void);
+
+    /**
+     *  Get number of TCP bytes received aggregated across all TCP sockets.
+     */
+    static uint32_t get_tcp_bytes_received(void);
+
 protected:
     friend class TCPServer;
 
@@ -127,6 +138,9 @@ protected:
     rtos::EventFlags _event_flag;
     bool _read_in_progress;
     bool _write_in_progress;
+
+    static std::map<TCPSocket*, uint32_t> tcp_socket_to_bytes_sent;
+    static std::map<TCPSocket*, uint32_t> tcp_socket_to_bytes_recv;
 };
 
 
