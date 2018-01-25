@@ -121,7 +121,12 @@ public:
     /**
     * Get number of UDP bytes sent aggregated across all UDP sockets.
     */
-    static uint64_t get_udp_bytes_sent(void);
+    static uint32_t get_udp_bytes_sent(void);
+
+    /**
+    * Get number of UDP bytes received aggregated across all UDP sockets.
+    */
+    static uint32_t get_udp_bytes_received(void);
 
 protected:
     virtual nsapi_protocol_t get_proto();
@@ -130,7 +135,8 @@ protected:
     volatile unsigned _pending;
     rtos::EventFlags _event_flag;
 
-    static std::map<UDPSocket*, uint64_t> udp_socket_to_bytes_sent;
+    static std::map<UDPSocket*, uint32_t> udp_socket_to_bytes_sent;
+    static std::map<UDPSocket*, uint32_t> udp_socket_to_bytes_recv;
 };
 
 

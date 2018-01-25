@@ -50,6 +50,8 @@ class Event;
  */
 class EventQueue : private mbed::NonCopyable<EventQueue> {
 public:
+    uint32_t equeue_alloc_overflows;
+
     /** Create an EventQueue
      *
      *  Create an event queue. The event queue either allocates a buffer of
@@ -84,7 +86,7 @@ public:
 
     /** Dispatch events without a timeout
      *
-     *  This is equivalent to EventQueue::dispatch with no arguments, but 
+     *  This is equivalent to EventQueue::dispatch with no arguments, but
      *  avoids overload ambiguities when passed as a callback.
      *
      *  @see EventQueue::dispatch
@@ -100,7 +102,7 @@ public:
 
     /** Millisecond counter
      *
-     *  Returns the underlying tick of the event queue represented as the 
+     *  Returns the underlying tick of the event queue represented as the
      *  number of milliseconds that have passed since an arbitrary point in
      *  time. Intentionally overflows to 0 after 2^32-1.
      *
@@ -199,6 +201,7 @@ public:
     int call(F f) {
         void *p = equeue_alloc(&_equeue, sizeof(F));
         if (!p) {
+            equeue_alloc_overflows += 1;
             return 0;
         }
 
