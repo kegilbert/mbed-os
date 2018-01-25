@@ -18,6 +18,43 @@
 #include "Timer.h"
 #include "mbed_assert.h"
 
+#define READ_FLAG           0x1u
+#define WRITE_FLAG          0x2u
+
+#define TCP_BYTE_TRACK_DEBUG 0
+
+std::map<TCPSocket*, uint32_t> TCPSocket::tcp_socket_to_bytes_sent;
+std::map<TCPSocket*, uint32_t> TCPSocket::tcp_socket_to_bytes_recv;
+
+uint32_t TCPSocket::get_tcp_bytes_sent(void) {
+    uint32_t sum = 0;
+    #if TCP_BYTE_TRACK_DEBUG
+    printf("____get_tcp_bytes_sent____\r\n");
+    #endif
+    for(std::map<TCPSocket*, uint32_t>::iterator it = tcp_socket_to_bytes_sent.begin(); it != tcp_socket_to_bytes_sent.end(); ++it) {
+        printf("TCP Socket: %x sent: %d bytes\r\n", it->first, it->second);
+        sum += it->second;
+    }
+
+    printf("TCP Bytes sent sum: %d\r\n", sum);
+    return sum;
+}
+
+uint32_t TCPSocket::get_tcp_bytes_received(void) {
+    uint32_t sum = 0;
+    #if TCP_BYTE_TRACK_DEBUG
+    printf("____get_tcp_bytes_recv____\r\n");
+    #endif
+    for(std::map<TCPSocket*, uint32_t>::iterator it = tcp_socket_to_bytes_recv.begin(); it != tcp_socket_to_bytes_recv.end(); ++it) {
+        printf("TCP Socket: %x received: %d bytes\r\n", it->first, it->second);
+        sum += it->second;
+    }
+
+    printf("TCP Bytes recv sum: %d\r\n", sum);
+    return sum;
+}
+
+
 TCPSocket::TCPSocket()
 {
 }
@@ -160,11 +197,15 @@ nsapi_size_or_error_t TCPSocket::send(const void *data, nsapi_size_t size)
     }
 
     _lock.unlock();
+
+    printf("Return logic: %d\r\n", ret);
     if (ret <= 0 && ret != NSAPI_ERROR_WOULD_BLOCK) {
         return ret;
     } else if (written == 0) {
         return NSAPI_ERROR_WOULD_BLOCK;
     } else {
+        tcp_socket_to_bytes_sent[this] += written;
+        printf("Returning bytes sent: %d\r\n", written);
         return written;
     }
 }
@@ -195,6 +236,7 @@ nsapi_size_or_error_t TCPSocket::recv(void *data, nsapi_size_t size)
         _pending = 0;
         ret = _stack->socket_recv(_socket, data, size);
         if ((_timeout == 0) || (ret != NSAPI_ERROR_WOULD_BLOCK)) {
+            tcp_socket_to_bytes_recv[this] += ret;
             break;
         } else {
             uint32_t flag;
@@ -219,6 +261,7 @@ nsapi_size_or_error_t TCPSocket::recv(void *data, nsapi_size_t size)
     }
 
     _lock.unlock();
+
     return ret;
 }
 

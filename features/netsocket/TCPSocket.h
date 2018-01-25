@@ -24,7 +24,8 @@
 #include "netsocket/NetworkStack.h"
 #include "netsocket/NetworkInterface.h"
 #include "rtos/EventFlags.h"
-
+#include <stdint.h>
+#include <map>
 
 /** TCP socket connection
  */
@@ -176,9 +177,22 @@ public:
      */
     virtual nsapi_error_t listen(int backlog = 1);
 
+    /**
+     *  Get number of TCP bytes sent aggregated across all TCP sockets.
+     */
+    static uint32_t get_tcp_bytes_sent(void);
+
+    /**
+     *  Get number of TCP bytes received aggregated across all TCP sockets.
+     */
+    static uint32_t get_tcp_bytes_received(void);
+
 protected:
     friend class TCPServer;
     virtual nsapi_protocol_t get_proto();
+
+    static std::map<TCPSocket*, uint32_t> tcp_socket_to_bytes_sent;
+    static std::map<TCPSocket*, uint32_t> tcp_socket_to_bytes_recv;
 };
 
 
