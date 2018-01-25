@@ -24,15 +24,35 @@
 
 #define UDP_BYTE_TRACK_DEBUG 0
 
-std::map<UDPSocket*, uint64_t> UDPSocket::udp_socket_to_bytes_sent;
+std::map<UDPSocket*, uint32_t> UDPSocket::udp_socket_to_bytes_sent;
+std::map<UDPSocket*, uint32_t> UDPSocket::udp_socket_to_bytes_recv;
 
-uint64_t UDPSocket::get_udp_bytes_sent(void) {
-    uint64_t sum = 0;
+uint32_t UDPSocket::get_udp_bytes_sent(void) {
+    uint32_t sum = 0;
     #if UDP_BYTE_TRACK_DEBUG
     printf("_____get_udp_bytes_sent____\r\n");
     printf("Map address: %d\r\n", udp_socket_to_bytes_sent);
     #endif
-    for(std::map<UDPSocket*, uint64_t>::iterator it= udp_socket_to_bytes_sent.begin(); it !=  udp_socket_to_bytes_sent.end(); ++it) {
+    for(std::map<UDPSocket*, uint32_t>::iterator it= udp_socket_to_bytes_sent.begin(); it !=  udp_socket_to_bytes_sent.end(); ++it) {
+        #if UDP_BYTE_TRACK_DEBUG
+        printf("\tFor loop it: %d, sum: %llu\r\n", it, sum);
+        #endif
+        sum += it->second;
+     }
+
+    #if UDP_BYTE_TRACK_DEBUG
+    printf("SUM: %llu\r\n", sum);
+    #endif
+    return sum;
+}
+
+uint32_t UDPSocket::get_udp_bytes_received(void) {
+    uint32_t sum = 0;
+    #if UDP_BYTE_TRACK_DEBUG
+    printf("_____get_udp_bytes_recv____\r\n");
+    printf("Map address: %d\r\n", udp_socket_to_bytes_recv);
+    #endif
+    for(std::map<UDPSocket*, uint32_t>::iterator it= udp_socket_to_bytes_recv.begin(); it !=  udp_socket_to_bytes_recv.end(); ++it) {
         #if UDP_BYTE_TRACK_DEBUG
         printf("\tFor loop it: %d, sum: %llu\r\n", it, sum);
         #endif
