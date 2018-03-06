@@ -123,12 +123,16 @@ static void default_idle_hook(void)
 {
     // critical section to complete sleep with locked deepsleep
     core_util_critical_section_enter();
+#if DEVICE_LOWPOWERTIMER
     uint32_t start = ticker_read_us(cpu_usage_ticker);
+#endif
     sleep_manager_lock_deep_sleep();
     sleep();
     sleep_manager_unlock_deep_sleep();
+#if DEVICE_LOWPOWERTIMER
     uint32_t end = ticker_read_us(cpu_usage_ticker);
     idle_time += end - start;
+#endif
     core_util_critical_section_exit();
 }
 

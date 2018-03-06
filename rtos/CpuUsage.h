@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if DEVICE_LOWPOWERTIMER
+
 #ifndef CPU_USAGE_H
 #define CPU_USAGE_H
 
@@ -91,3 +93,4 @@ private:
 /** @}*/
 }
 #endif
+#endif // DEVICE_LOWPOWERTIMER
