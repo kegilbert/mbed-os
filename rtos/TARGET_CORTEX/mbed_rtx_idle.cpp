@@ -34,7 +34,9 @@ extern "C" {
 
 using namespace mbed;
 
+#if DEVICE_LOWPOWERTIMER
 static const ticker_data_t *const cpu_usage_ticker = get_lp_ticker_data();
+#endif
 static uint32_t idle_time = 0;
 
 extern uint32_t mbed_time_idle(void)
@@ -201,7 +203,9 @@ static void default_idle_hook(void)
     uint32_t elapsed_ticks = 0;
 
     core_util_critical_section_enter();
+#if DEVICE_LOWPOWERTIMER
     uint32_t start = ticker_read_us(cpu_usage_ticker);
+#endif
     uint32_t ticks_to_sleep = svcRtxKernelSuspend();
     if (ticks_to_sleep) {
         os_timer->schedule_tick(ticks_to_sleep);
@@ -213,8 +217,10 @@ static void default_idle_hook(void)
         elapsed_ticks = os_timer->update_tick();
     }
     svcRtxKernelResume(elapsed_ticks);
+#if DEVICE_LOWPOWERTIMER
     uint32_t end = ticker_read_us(cpu_usage_ticker);
     idle_time += end - start;
+#endif
     core_util_critical_section_exit();
 }
 
@@ -232,12 +238,16 @@ static void default_idle_hook(void)
 {
     // critical section to complete sleep with locked deepsleep
     core_util_critical_section_enter();
+#if DEVICE_LOWPOWERTIMER
     uint32_t start = ticker_read_us(cpu_usage_ticker);
+#endif
     sleep_manager_lock_deep_sleep();
     sleep();
     sleep_manager_unlock_deep_sleep();
+#if DEVICE_LOWPOWERTIMER
     uint32_t end = ticker_read_us(cpu_usage_ticker);
     idle_time += end - start;
+#endif
     core_util_critical_section_exit();
 }
 
