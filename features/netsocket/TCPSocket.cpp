@@ -32,11 +32,9 @@ uint32_t TCPSocket::get_tcp_bytes_sent(void) {
     printf("____get_tcp_bytes_sent____\r\n");
     #endif
     for(std::map<TCPSocket*, uint32_t>::iterator it = tcp_socket_to_bytes_sent.begin(); it != tcp_socket_to_bytes_sent.end(); ++it) {
-        printf("TCP Socket: %x sent: %llu bytes\r\n", it->first, it->second);
         sum += it->second;
     }
 
-    printf("TCP Bytes sent sum: %llu\r\n", sum);
     return sum;
 }
 
@@ -189,14 +187,12 @@ nsapi_size_or_error_t TCPSocket::send(const void *data, nsapi_size_t size)
     _write_in_progress = false;
     _lock.unlock();
 
-    printf("Return logic: %d\r\n", ret);
     if (ret <= 0 && ret != NSAPI_ERROR_WOULD_BLOCK) {
         return ret;
     } else if (written == 0) {
         return NSAPI_ERROR_WOULD_BLOCK;
     } else {
         tcp_socket_to_bytes_sent[this] += written;
-        printf("Returning bytes sent: %d\r\n", written);
         return written;
     }
 }
