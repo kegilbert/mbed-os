@@ -246,7 +246,7 @@ protected:
      *  @param handle   Socket handle
      *  @return         0 on success, negative error code on failure
      */
-    virtual nsapi_error_t socket_close(nsapi_socket_t handle);
+    virtual nsapi_error_t socket_close(nsapi_socket_t handle, char *foreign_ip, uint16_t *foreign_port);
 
     /** Bind a specific address to a socket
      *

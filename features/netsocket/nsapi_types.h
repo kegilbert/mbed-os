@@ -409,7 +409,7 @@ typedef struct nsapi_stack_api
      *  @param socket   Socket handle
      *  @return         0 on success, negative error code on failure
      */
-    nsapi_error_t (*socket_close)(nsapi_stack_t *stack, nsapi_socket_t socket);
+    nsapi_error_t (*socket_close)(nsapi_stack_t *stack, nsapi_socket_t socket, char *foreign_ip, uint16_t *foreign_port);
 
     /** Bind a specific address to a socket
      *

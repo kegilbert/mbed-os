@@ -25,6 +25,35 @@
 
 // Predeclared classes
 class OnboardNetworkStack;
+#include "rtos/EventFlags.h"
+#include <vector>
+
+enum connection_event_state {
+    TCP_OPEN,
+    TCP_LISTEN,
+    TCP_SYN_SENT,
+    TCP_SYN_RCVD,
+    TCP_ACCEPT,
+    UDP_SEND,
+    UDP_RECV,
+    SOCK_CLOSE,
+};
+
+struct connection_event_t {
+    uint64_t        timestamp;
+    nsapi_socket_t  socket;
+    char            foreign_ip[16];
+    uint16_t        foreign_port;
+    char            thread_name[32];   // osThreadGetName(thread_id)
+    uint8_t         status;
+
+    connection_event_t(uint64_t _timestamp, nsapi_socket_t _socket, const char *_ip, uint32_t _port, const char *_thread, uint8_t _status)
+        : timestamp(_timestamp), socket(_socket), foreign_port(_port), status(_status)
+    {
+        memcpy(foreign_ip, _ip, 16);
+        memcpy(thread_name, _thread, 32);
+    }
+};
 
 /** NetworkStack class
  *
@@ -365,6 +394,14 @@ protected:
      */
     virtual nsapi_error_t getsockopt(nsapi_socket_t handle, int level,
             int optname, void *optval, unsigned *optlen);
+
+public:
+    static std::vector<connection_event_t>& get_connection_events(void);
+
+    static void clear_connection_events(void);
+
+    static std::vector<connection_event_t> connection_events;
+};
 
 private:
 

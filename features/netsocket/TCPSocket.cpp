@@ -17,6 +17,7 @@
 #include "TCPSocket.h"
 #include "Timer.h"
 #include "mbed_assert.h"
+#include "Kernel.h"
 
 #define READ_FLAG           0x1u
 #define WRITE_FLAG          0x2u
@@ -49,7 +50,6 @@ uint32_t TCPSocket::get_tcp_bytes_received(void) {
 
     return sum;
 }
-
 
 TCPSocket::TCPSocket()
 {

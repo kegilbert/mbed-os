@@ -288,9 +288,18 @@ nsapi_error_t LWIP::socket_open(nsapi_socket_t *handle, nsapi_protocol_t proto)
     return 0;
 }
 
-nsapi_error_t LWIP::socket_close(nsapi_socket_t handle)
+nsapi_error_t LWIP::socket_close(nsapi_socket_t handle, char *foreign_ip, uint16_t *foreign_port)
 {
     struct mbed_lwip_socket *s = (struct mbed_lwip_socket *)handle;
+
+    if (s->conn->type == NETCONN_TCP) {
+        strncpy(foreign_ip, ipaddr_ntoa(&s->conn->pcb.tcp->remote_ip), 16);
+        *foreign_port = s->conn->pcb.tcp->remote_port;
+    } else {
+        // UDP/RAW
+        strncpy(foreign_ip, "*", 16);
+        *foreign_port = 0;
+    }
 
     netbuf_delete(s->buf);
     err_t err = netconn_delete(s->conn);
