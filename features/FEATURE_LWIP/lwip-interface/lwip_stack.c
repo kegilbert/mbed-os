@@ -67,7 +67,6 @@ static struct lwip_socket {
     nsapi_ip_mreq_t *multicast_memberships;
     uint32_t         multicast_memberships_count;
     uint32_t         multicast_memberships_registry;
-
 } lwip_arena[MEMP_NUM_NETCONN];
 
 static bool lwip_inited = false;
@@ -965,9 +964,19 @@ static nsapi_error_t mbed_lwip_socket_open(nsapi_stack_t *stack, nsapi_socket_t 
     return 0;
 }
 
-static nsapi_error_t mbed_lwip_socket_close(nsapi_stack_t *stack, nsapi_socket_t handle)
+static nsapi_error_t mbed_lwip_socket_close(nsapi_stack_t *stack, nsapi_socket_t handle, char *foreign_ip, uint16_t *foreign_port)
 {
     struct lwip_socket *s = (struct lwip_socket *)handle;
+
+    //printf("Closing socket bound to %s:%d\r\n", ipaddr_ntoa(&s->conn->pcb.tcp->remote_ip), s->conn->pcb.tcp->remote_port);
+    if(s->conn->type == NETCONN_TCP) {
+        strncpy(foreign_ip, ipaddr_ntoa(&s->conn->pcb.tcp->remote_ip), 16);
+        *foreign_port = s->conn->pcb.tcp->remote_port;
+    } else {
+        // UDP/RAW
+        strncpy(foreign_ip, "*", 16);
+        *foreign_port = 0;
+    }
 
     netbuf_delete(s->buf);
     err_t err = netconn_delete(s->conn);

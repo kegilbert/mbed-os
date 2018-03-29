@@ -17,9 +17,26 @@
 #include "NetworkStack.h"
 #include "nsapi_dns.h"
 #include "mbed.h"
+#include "lwip_stack.h"
 #include "stddef.h"
 #include <new>
 
+std::vector<connection_event_t> NetworkStack::connection_events;
+
+std::vector<connection_event_t>&  NetworkStack::get_connection_events(void) {
+    printf("======= Connection Events ========\r\n");
+    for(std::vector<connection_event_t>::iterator it = connection_events.begin(); it < connection_events.end(); it++) {
+        printf("[\r\n\tTimestamp: %llu\r\n\tForeign IP: %s:%d\r\n\tThread Name: %s\r\n\tConnection Status: %d\r\n],\r\n",
+            it->timestamp, it->foreign_ip, it->foreign_port, it->thread_name, it->status);
+    }
+    printf("==================================\r\n");
+
+    return connection_events;
+}
+
+void NetworkStack::clear_connection_events(void) {
+    connection_events.clear();
+}
 
 // Default NetworkStack operations
 nsapi_error_t NetworkStack::gethostbyname(const char *name, SocketAddress *address, nsapi_version_t version)
@@ -154,7 +171,16 @@ protected:
             return NSAPI_ERROR_UNSUPPORTED;
         }
 
-        return _stack_api()->socket_close(_stack(), socket);
+        char     ip[16];
+        uint16_t port;
+        nsapi_error_t ret = _stack_api()->socket_close(_stack(), socket, ip, &port);
+
+        if(ret == NSAPI_ERROR_OK) {
+            connection_events.push_back(connection_event_t(rtos::Kernel::get_ms_count(), socket, ip, port/*s->conn->pcb.tcp->remote_port*/,
+                osThreadGetName(osThreadGetId()), SOCK_CLOSE));
+        }
+
+        return ret;
     }
 
     virtual nsapi_error_t socket_bind(nsapi_socket_t socket, const SocketAddress &address)
@@ -172,7 +198,15 @@ protected:
             return NSAPI_ERROR_UNSUPPORTED;
         }
 
-        return _stack_api()->socket_listen(_stack(), socket, backlog);
+        nsapi_error_t ret = _stack_api()->socket_listen(_stack(), socket, backlog);
+
+        if (ret == NSAPI_ERROR_OK) {
+            // No foreign IP/port during listen state
+            connection_events.push_back(connection_event_t(rtos::Kernel::get_ms_count(), socket, "*", 0,
+                osThreadGetName(osThreadGetId()), TCP_LISTEN));
+        }
+
+        return ret;
     }
 
     virtual nsapi_error_t socket_connect(nsapi_socket_t socket, const SocketAddress &address)
@@ -181,7 +215,14 @@ protected:
             return NSAPI_ERROR_UNSUPPORTED;
         }
 
-        return _stack_api()->socket_connect(_stack(), socket, address.get_addr(), address.get_port());
+        nsapi_error_t ret = _stack_api()->socket_connect(_stack(), socket, address.get_addr(), address.get_port());
+
+        if (ret == NSAPI_ERROR_OK) {
+            connection_events.push_back(connection_event_t(rtos::Kernel::get_ms_count(), socket, address.get_ip_address(), address.get_port(),
+                osThreadGetName(osThreadGetId()), TCP_OPEN));
+        }
+
+        return ret;
     }
 
     virtual nsapi_error_t socket_accept(nsapi_socket_t server, nsapi_socket_t *socket, SocketAddress *address)
@@ -198,6 +239,11 @@ protected:
         if (address) {
             address->set_addr(addr);
             address->set_port(port);
+        }
+
+        if(err == NSAPI_ERROR_OK) {
+            connection_events.push_back(connection_event_t(rtos::Kernel::get_ms_count(), socket, address->get_ip_address(), address->get_port(),
+                osThreadGetName(osThreadGetId()), TCP_ACCEPT));
         }
 
         return err;
@@ -227,7 +273,14 @@ protected:
             return NSAPI_ERROR_UNSUPPORTED;
         }
 
-        return _stack_api()->socket_sendto(_stack(), socket, address.get_addr(), address.get_port(), data, size);
+        nsapi_size_or_error_t ret = _stack_api()->socket_sendto(_stack(), socket, address.get_addr(), address.get_port(), data, size);
+
+        if (ret >= 0) {
+            connection_events.push_back(connection_event_t(rtos::Kernel::get_ms_count(), socket, address.get_ip_address(), address.get_port(),
+                osThreadGetName(osThreadGetId()), UDP_SEND));
+        }
+
+        return ret;
     }
 
     virtual nsapi_size_or_error_t socket_recvfrom(nsapi_socket_t socket, SocketAddress *address, void *data, nsapi_size_t size)
@@ -244,6 +297,11 @@ protected:
         if (address) {
             address->set_addr(addr);
             address->set_port(port);
+        }
+
+        if (err >= 0) {
+            connection_events.push_back(connection_event_t(rtos::Kernel::get_ms_count(), socket, address->get_ip_address(), address->get_port(),
+                osThreadGetName(osThreadGetId()), UDP_RECV));
         }
 
         return err;

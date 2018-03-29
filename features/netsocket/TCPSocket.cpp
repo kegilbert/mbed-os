@@ -17,6 +17,7 @@
 #include "TCPSocket.h"
 #include "Timer.h"
 #include "mbed_assert.h"
+#include "Kernel.h"
 
 #define READ_FLAG           0x1u
 #define WRITE_FLAG          0x2u
@@ -44,14 +45,11 @@ uint32_t TCPSocket::get_tcp_bytes_received(void) {
     printf("____get_tcp_bytes_recv____\r\n");
     #endif
     for(std::map<TCPSocket*, uint32_t>::iterator it = tcp_socket_to_bytes_recv.begin(); it != tcp_socket_to_bytes_recv.end(); ++it) {
-        printf("TCP Socket: %x received: %llu bytes\r\n", it->first, it->second);
         sum += it->second;
     }
 
-    printf("TCP Bytes recv sum: %llu\r\n", sum);
     return sum;
 }
-
 
 TCPSocket::TCPSocket()
     : _pending(0), _event_flag(),
