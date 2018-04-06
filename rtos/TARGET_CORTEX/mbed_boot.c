@@ -277,6 +277,8 @@ void mbed_set_stack_heap(void) {
     /* Heap - everything else */
     mbed_heap_size = free_size;
     mbed_heap_start = free_start;
+
+    memset((void*)mbed_heap_start, 0x00, mbed_heap_size);
 }
 
 static void mbed_cpy_nvic(void)
