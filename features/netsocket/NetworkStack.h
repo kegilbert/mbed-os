@@ -26,6 +26,7 @@
 // Predeclared classes
 class OnboardNetworkStack;
 #include "rtos/EventFlags.h"
+#include "platform/mbed_critical.h"
 #include <vector>
 
 enum connection_event_state {
@@ -50,8 +51,42 @@ struct connection_event_t {
     connection_event_t(uint64_t _timestamp, nsapi_socket_t _socket, const char *_ip, uint32_t _port, const char *_thread, uint8_t _status)
         : timestamp(_timestamp), socket(_socket), foreign_port(_port), status(_status)
     {
-        memcpy(foreign_ip, _ip, 16);
-        memcpy(thread_name, _thread, 32);
+        core_util_critical_section_enter();
+        //int32_t lock = osKernelLock();
+        strncpy(foreign_ip, _ip, strlen(_ip) > 15 ? 16 : strlen(_ip) + 1);
+        strncpy(thread_name, _thread, 32);//strlen(_thread) > 31 ? 32 : strlen(thread_name) + 1);
+        /* 
+        printf("\tIn: ");
+        for(int n = 0; n < strlen(_ip) + 1; n++) {
+            printf("%x ", _ip[n]);
+        }
+        printf("\r\n\tOut: ");
+        for(int n = 0; n < strlen(foreign_ip) + 1; n++) {
+            printf("%x ", foreign_ip[n]);
+        }
+
+        printf("%IP: %s, Thread: %s\r\n, lengths: %d %d\r\n", _ip, _thread, strlen(_ip), strlen(_thread));
+        printf("%IP: %s, Thread: %s\r\n, lengths: %d %d\r\n", foreign_ip, thread_name, strlen(foreign_ip), strlen(thread_name));
+        printf("Raw buffers -> \r\n");
+        printf("\tIn IP: ");
+        for(int n = 0; n < strlen(_ip) + 1; n++) {
+            printf("%x ", _ip[n]);
+        }
+        printf("\r\n\tOut IP: ");
+        for(int n = 0; n < strlen(foreign_ip) + 1; n++) {
+            printf("%x ", foreign_ip[n]);
+        }
+        printf("\r\n\tIn Thread: ");
+        for(int n = 0; n < strlen(_thread) + 1; n++) {
+            printf("%x ", _thread[n]);
+        }
+        printf("\r\n\tOut Thread: ");
+        for(int n = 0; n < strlen(thread_name) + 1; n++) {
+            printf("%x ", thread_name[n]);
+        }
+        */ 
+        core_util_critical_section_exit();
+        //osKernelRestoreLock(lock);
     }
 };
 
