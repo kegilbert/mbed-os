@@ -24,12 +24,12 @@
 std::vector<connection_event_t> NetworkStack::connection_events;
 
 std::vector<connection_event_t>&  NetworkStack::get_connection_events(void) {
-    printf("======= Connection Events ========\r\n");
-    for(std::vector<connection_event_t>::iterator it = connection_events.begin(); it < connection_events.end(); it++) {
-        printf("[\r\n\tTimestamp: %llu\r\n\tForeign IP: %s:%d\r\n\tThread Name: %s\r\n\tConnection Status: %d\r\n],\r\n",
-            it->timestamp, it->foreign_ip, it->foreign_port, it->thread_name, it->status);
-    }
-    printf("==================================\r\n");
+//    printf("======= Connection Events ========\r\n");
+    //for(std::vector<connection_event_t>::iterator it = connection_events.begin(); it < connection_events.end(); it++) {
+    //    printf("[\r\n\tTimestamp: %llu\r\n\tForeign IP: %s:%d\r\n\tThread Name: %s\r\n\tConnection Status: %d\r\n],\r\n",
+      //      it->timestamp, it->foreign_ip, it->foreign_port, it->thread_name, it->status);
+    //}
+  //  printf("==================================\r\n");
 
     return connection_events;
 }
