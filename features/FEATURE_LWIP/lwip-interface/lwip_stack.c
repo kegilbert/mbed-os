@@ -975,7 +975,7 @@ static nsapi_error_t mbed_lwip_socket_close(nsapi_stack_t *stack, nsapi_socket_t
     } else {
         // UDP/RAW
         strncpy(foreign_ip, "*", 16);
-        *foreign_port = 0;
+        *foreign_port = s->conn->pcb.udp->remote_port;
     }
 
     netbuf_delete(s->buf);
