@@ -115,6 +115,9 @@ again:
       goto again;
     }
   }
+
+  //udp_log_event(pcb, UDP_NEW_PORT);
+
   return udp_port;
 }
 
@@ -458,7 +461,7 @@ udp_send(struct udp_pcb *pcb, struct pbuf *p)
     return ERR_VAL;
   }
 
-  udp_log_event(pcb, UDP_SENDTO);
+  //udp_log_event(pcb, UDP_SENDTO);
   /* send to the packet using remote ip and port stored in the pcb */
   return udp_sendto(pcb, p, &pcb->remote_ip, pcb->remote_port);
 }
@@ -562,6 +565,8 @@ udp_sendto_chksum(struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *dst_ip,
     UDP_STATS_INC(udp.rterr);
     return ERR_RTE;
   }
+
+  //udp_log_event(pcb, dst_ip, dst_port, UDP_SENDTO);
 #if LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP
   return udp_sendto_if_chksum(pcb, p, dst_ip, dst_port, netif, have_chksum, chksum);
 #else /* LWIP_CHECKSUM_ON_COPY && CHECKSUM_GEN_UDP */
@@ -957,6 +962,9 @@ udp_bind(struct udp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port)
   LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("udp_bind: bound to "));
   ip_addr_debug_print(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, &pcb->local_ip);
   LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, (", port %"U16_F")\n", pcb->local_port));
+
+  //udp_log_event(pcb, UDP_BIND);
+
   return ERR_OK;
 }
 
@@ -1007,6 +1015,9 @@ udp_connect(struct udp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port)
   for (ipcb = udp_pcbs; ipcb != NULL; ipcb = ipcb->next) {
     if (pcb == ipcb) {
       /* already on the list, just return */
+
+      //udp_log_event(pcb, UDP_CONNECT);
+
       return ERR_OK;
     }
   }
@@ -1014,7 +1025,7 @@ udp_connect(struct udp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port)
   pcb->next = udp_pcbs;
   udp_pcbs = pcb;
 
-  udp_log_event(pcb, UDP_CONNECT);
+  //udp_log_event(pcb, UDP_CONNECT);
 
   return ERR_OK;
 }
@@ -1042,7 +1053,7 @@ udp_disconnect(struct udp_pcb *pcb)
   /* mark PCB as unconnected */
   pcb->flags &= ~UDP_FLAGS_CONNECTED;
 
-  udp_log_event(pcb, UDP_DISCONNECT);
+  //udp_log_event(pcb, UDP_DISCONNECT);
 }
 
 /**
@@ -1122,6 +1133,7 @@ udp_new(void)
     udp_set_multicast_ttl(pcb, UDP_TTL);
 #endif /* LWIP_MULTICAST_TX_OPTIONS */
   }
+    
   return pcb;
 }
 

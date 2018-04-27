@@ -58,7 +58,7 @@ extern "C" {
 #define UDP_FLAGS_CONNECTED      0x04U
 #define UDP_FLAGS_MULTICAST_LOOP 0x08U
 
-#define UDP_EVENT_LOG_DEPTH      8
+#define UDP_EVENT_LOG_DEPTH      0
 
 struct udp_pcb;
 
@@ -179,7 +179,11 @@ void udp_netif_ip_addr_changed(const ip_addr_t* old_addr, const ip_addr_t* new_a
 enum udp_state {
     UDP_CONNECT,
     UDP_SENDTO,
-    UDP_DISCONNECT
+    UDP_NEW,
+    UDP_NEW_PORT,
+    UDP_BIND,
+    UDP_DISCONNECT,
+    UDP_REMOVE
 };
 
 struct udp_event_t {
