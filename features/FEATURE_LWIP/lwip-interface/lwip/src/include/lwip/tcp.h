@@ -151,7 +151,7 @@ typedef u16_t tcpflags_t;
 typedef u8_t tcpflags_t;
 #endif
 
-#define EVENT_LOG_DEPTH 16
+#define TCP_EVENT_LOG_DEPTH 16
 
 enum tcp_state {
   CLOSED      = 0,
