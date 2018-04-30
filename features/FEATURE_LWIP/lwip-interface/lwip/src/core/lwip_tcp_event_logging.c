@@ -53,7 +53,8 @@ void tcp_change_state_logging(struct tcp_pcb *pcb, enum tcp_state new_state) {
     if (tcp_events_i == TCP_EVENT_LOG_DEPTH) {
         printf("WARNING: EXCEEDED TCP EVENT LOG DEPTH\r\n");
     } else {
-        tcp_events[tcp_events_i].addr        = pcb->remote_ip;
+        tcp_events[tcp_events_i].local_ip    = pcb->local_ip;
+        tcp_events[tcp_events_i].remote_ip   = pcb->remote_ip;
         tcp_events[tcp_events_i].local_port  = pcb->local_port;
         tcp_events[tcp_events_i].remote_port = pcb->remote_port;
         tcp_events[tcp_events_i].state       = new_state;

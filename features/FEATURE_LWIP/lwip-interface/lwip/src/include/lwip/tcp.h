@@ -336,7 +336,8 @@ struct tcp_pcb {
 #define TCP_EVENT_DEBUG 0
 
 struct tcp_event_t {
-    ip_addr_t      addr;
+    ip_addr_t      local_ip;
+    ip_addr_t      remote_ip;
     uint16_t       local_port;
     uint16_t       remote_port;
     enum tcp_state state;
