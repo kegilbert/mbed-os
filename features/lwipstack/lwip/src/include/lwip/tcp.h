@@ -151,6 +151,8 @@ typedef u16_t tcpflags_t;
 typedef u8_t tcpflags_t;
 #endif
 
+#define TCP_EVENT_LOG_DEPTH 16
+
 enum tcp_state {
   CLOSED      = 0,
   LISTEN      = 1,
@@ -328,6 +330,26 @@ struct tcp_pcb {
   u8_t rcv_scale;
 #endif
 };
+
+/* TCP Events */
+#define TCP_EVENT_DBEUG 0
+
+struct tcp_event_t {
+    ip_addr_t      local_ip;
+    ip_addr_t      remote_ip;
+    uint16_t       local_port;
+    uint16_t       remote_port;
+    enum tcp_state state;
+    uint64_t       timestamp;
+    char           thread_name[32];
+};
+
+struct tcp_event_t* get_tcp_events_log(void);
+uint8_t tcp_event_log_size(void);
+void clear_tcp_events(void);
+void tcp_change_state_logging(struct tcp_pcb *pcb, enum tcp_state new_state);
+
+/* End TCP Events */
 
 #if LWIP_EVENT_API
 

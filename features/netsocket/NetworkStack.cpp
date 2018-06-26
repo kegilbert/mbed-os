@@ -17,7 +17,6 @@
 #include "NetworkStack.h"
 #include "nsapi_dns.h"
 #include "mbed.h"
-#include "lwip_stack.h"
 #include "stddef.h"
 #include <new>
 
@@ -242,11 +241,11 @@ protected:
         }
 
         char     ip[16];
-        uint16_t port;
-        nsapi_error_t ret = _stack_api()->socket_close(_stack(), socket, ip, &port);
+        uint16_t foreign_port;
+        nsapi_error_t ret = _stack_api()->socket_close(_stack(), socket, ip, &foreign_port);
 
         if(ret == NSAPI_ERROR_OK) {
-            connection_events.push_back(connection_event_t(rtos::Kernel::get_ms_count(), socket, ip, port/*s->conn->pcb.tcp->remote_port*/,
+            connection_events.push_back(connection_event_t(rtos::Kernel::get_ms_count(), socket, ip, foreign_port,
                 osThreadGetName(osThreadGetId()), SOCK_CLOSE));
         }
 

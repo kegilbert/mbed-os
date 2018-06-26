@@ -22,8 +22,6 @@
 #define READ_FLAG           0x1u
 #define WRITE_FLAG          0x2u
 
-std::map<UDPSocket*, uint64_t> UDPSocket::udp_socket_to_bytes_sent;
-
 #define UDP_BYTE_TRACK_DEBUG 0
 
 std::map<UDPSocket*, uint32_t> UDPSocket::udp_socket_to_bytes_sent;

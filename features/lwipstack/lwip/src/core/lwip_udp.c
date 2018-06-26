@@ -3,7 +3,7 @@
  * User Datagram Protocol module\n
  * The code for the User Datagram Protocol UDP & UDPLite (RFC 3828).\n
  * See also @ref udp_raw
- * 
+ *
  * @defgroup udp_raw UDP
  * @ingroup callbackstyle_api
  * User Datagram Protocol module\n
@@ -458,6 +458,7 @@ udp_send(struct udp_pcb *pcb, struct pbuf *p)
     return ERR_VAL;
   }
 
+  //udp_log_event(pcb, UDP_SENDTO);
   /* send to the packet using remote ip and port stored in the pcb */
   return udp_sendto(pcb, p, &pcb->remote_ip, pcb->remote_port);
 }
@@ -1012,6 +1013,9 @@ udp_connect(struct udp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port)
   /* PCB not yet on the list, add PCB now */
   pcb->next = udp_pcbs;
   udp_pcbs = pcb;
+
+  //udp_log_event(pcb, UDP_CONNECT);
+
   return ERR_OK;
 }
 
@@ -1037,6 +1041,8 @@ udp_disconnect(struct udp_pcb *pcb)
   pcb->remote_port = 0;
   /* mark PCB as unconnected */
   pcb->flags &= ~UDP_FLAGS_CONNECTED;
+
+  //udp_log_event(pcb, UDP_DISCONNECT);
 }
 
 /**

@@ -58,6 +58,8 @@ extern "C" {
 #define UDP_FLAGS_CONNECTED      0x04U
 #define UDP_FLAGS_MULTICAST_LOOP 0x08U
 
+#define UDP_EVENT_LOG_DEPTH 0
+
 struct udp_pcb;
 
 /** Function prototype for udp pcb receive callback functions
@@ -172,6 +174,29 @@ void udp_debug_print(struct udp_hdr *udphdr);
 #endif
 
 void udp_netif_ip_addr_changed(const ip_addr_t* old_addr, const ip_addr_t* new_addr);
+
+/* UDP Events */
+enum udp_state {
+    UDP_CONNECT,
+    UDP_SENDTO,
+    UDP_DISCONNECT
+};
+
+struct udp_event_t {
+    ip_addr_t      addr;
+    uint16_t       local_port;
+    uint16_t       remote_port;
+    enum udp_state state;
+    uint64_t       timestamp;
+    char           thread_name[32];
+};
+
+struct udp_event_t* get_udp_events_log(void);
+uint8_t udp_event_log_size(void);
+void clear_udp_events(void);
+void udp_log_event(struct udp_pcb *pcb, enum udp_state);
+
+/* End UDP Events */
 
 #ifdef __cplusplus
 }

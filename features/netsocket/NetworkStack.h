@@ -22,12 +22,14 @@
 #include "netsocket/SocketAddress.h"
 #include "netsocket/NetworkInterface.h"
 #include "DNS.h"
+#include "platform/mbed_critical.h"
+#include <vector>
 
 // Predeclared classes
 class OnboardNetworkStack;
-#include "rtos/EventFlags.h"
-#include "platform/mbed_critical.h"
-#include <vector>
+
+#ifndef CONNECTION_EVENT_STRUCTS
+#define CONNECTION_EVENT_STRUCTS
 
 enum connection_event_state {
     TCP_OPEN,
@@ -52,43 +54,12 @@ struct connection_event_t {
         : timestamp(_timestamp), socket(_socket), foreign_port(_port), status(_status)
     {
         core_util_critical_section_enter();
-        //int32_t lock = osKernelLock();
         strncpy(foreign_ip, _ip, strlen(_ip) > 15 ? 16 : strlen(_ip) + 1);
-        strncpy(thread_name, _thread, 32);//strlen(_thread) > 31 ? 32 : strlen(thread_name) + 1);
-        /* 
-        printf("\tIn: ");
-        for(int n = 0; n < strlen(_ip) + 1; n++) {
-            printf("%x ", _ip[n]);
-        }
-        printf("\r\n\tOut: ");
-        for(int n = 0; n < strlen(foreign_ip) + 1; n++) {
-            printf("%x ", foreign_ip[n]);
-        }
-
-        printf("%IP: %s, Thread: %s\r\n, lengths: %d %d\r\n", _ip, _thread, strlen(_ip), strlen(_thread));
-        printf("%IP: %s, Thread: %s\r\n, lengths: %d %d\r\n", foreign_ip, thread_name, strlen(foreign_ip), strlen(thread_name));
-        printf("Raw buffers -> \r\n");
-        printf("\tIn IP: ");
-        for(int n = 0; n < strlen(_ip) + 1; n++) {
-            printf("%x ", _ip[n]);
-        }
-        printf("\r\n\tOut IP: ");
-        for(int n = 0; n < strlen(foreign_ip) + 1; n++) {
-            printf("%x ", foreign_ip[n]);
-        }
-        printf("\r\n\tIn Thread: ");
-        for(int n = 0; n < strlen(_thread) + 1; n++) {
-            printf("%x ", _thread[n]);
-        }
-        printf("\r\n\tOut Thread: ");
-        for(int n = 0; n < strlen(thread_name) + 1; n++) {
-            printf("%x ", thread_name[n]);
-        }
-        */ 
+        strncpy(thread_name, _thread, 32);
         core_util_critical_section_exit();
-        //osKernelRestoreLock(lock);
     }
 };
+#endif // CONNECTION_EVENT_STRUCTS
 
 /** NetworkStack class
  *
@@ -224,6 +195,12 @@ public:
      *  @return         0 on success, negative error code on failure
      */
     virtual nsapi_error_t getstackopt(int level, int optname, void *optval, unsigned *optlen);
+
+    static std::vector<connection_event_t>& get_connection_events(void);
+
+    static void clear_connection_events(void);
+
+    static std::vector<connection_event_t> connection_events;
 
     /** Dynamic downcast to a OnboardNetworkStack */
     virtual OnboardNetworkStack *onboardNetworkStack() { return 0; }
@@ -429,14 +406,6 @@ protected:
      */
     virtual nsapi_error_t getsockopt(nsapi_socket_t handle, int level,
             int optname, void *optval, unsigned *optlen);
-
-public:
-    static std::vector<connection_event_t>& get_connection_events(void);
-
-    static void clear_connection_events(void);
-
-    static std::vector<connection_event_t> connection_events;
-};
 
 private:
 

@@ -1,5 +1,5 @@
 /**
- * @file 
+ * @file
  * Transmission Control Protocol for IP
  * See also @ref tcp_raw
  *
@@ -279,7 +279,7 @@ tcp_close_shutdown(struct tcp_pcb *pcb, u8_t rst_on_unacked_data)
       TCP_RMV_ACTIVE(pcb);
       if (pcb->state == ESTABLISHED) {
         /* move to TIME_WAIT since we close actively */
-        pcb->state = TIME_WAIT;
+        tcp_change_state_logging(pcb, TIME_WAIT);
         TCP_REG(&tcp_tw_pcbs, pcb);
       } else {
         /* CLOSE_WAIT: deallocate the pcb since we already sent a RST for it */
@@ -338,21 +338,21 @@ tcp_close_shutdown_fin(struct tcp_pcb *pcb)
     if (err == ERR_OK) {
       tcp_backlog_accepted(pcb);
       MIB2_STATS_INC(mib2.tcpattemptfails);
-      pcb->state = FIN_WAIT_1;
+      tcp_change_state_logging(pcb, FIN_WAIT_1);
     }
     break;
   case ESTABLISHED:
     err = tcp_send_fin(pcb);
     if (err == ERR_OK) {
       MIB2_STATS_INC(mib2.tcpestabresets);
-      pcb->state = FIN_WAIT_1;
+      tcp_change_state_logging(pcb, FIN_WAIT_1);
     }
     break;
   case CLOSE_WAIT:
     err = tcp_send_fin(pcb);
     if (err == ERR_OK) {
       MIB2_STATS_INC(mib2.tcpestabresets);
-      pcb->state = LAST_ACK;
+      tcp_change_state_logging(pcb, LAST_ACK);
     }
     break;
   default:
@@ -714,7 +714,7 @@ tcp_listen_with_backlog_and_err(struct tcp_pcb *pcb, u8_t backlog, err_t *err)
   }
   lpcb->callback_arg = pcb->callback_arg;
   lpcb->local_port = pcb->local_port;
-  lpcb->state = LISTEN;
+  tcp_change_state_logging(lpcb, LISTEN);
   lpcb->prio = pcb->prio;
   lpcb->so_options = pcb->so_options;
   lpcb->ttl = pcb->ttl;
@@ -957,7 +957,7 @@ tcp_connect(struct tcp_pcb *pcb, const ip_addr_t *ipaddr, u16_t port,
   ret = tcp_enqueue_flags(pcb, TCP_SYN);
   if (ret == ERR_OK) {
     /* SYN segment was enqueued, changed the pcbs state now */
-    pcb->state = SYN_SENT;
+    tcp_change_state_logging(pcb, SYN_SENT);
     if (old_local_port != 0) {
       TCP_RMV(&tcp_bound_pcbs, pcb);
     }
@@ -1742,7 +1742,7 @@ tcp_sent(struct tcp_pcb *pcb, tcp_sent_fn sent)
  * has occurred on the connection.
  *
  * @note The corresponding pcb is already freed when this callback is called!
- * 
+ *
  * @param pcb tcp_pcb to set the err callback
  * @param err callback function to call for this pcb when a fatal error
  *        has occurred on the connection
@@ -1873,7 +1873,7 @@ tcp_pcb_remove(struct tcp_pcb **pcblist, struct tcp_pcb *pcb)
 #endif /* TCP_QUEUE_OOSEQ */
   }
 
-  pcb->state = CLOSED;
+  tcp_change_state_logging(pcb, CLOSED);
   /* reset the local port to prevent the pcb from being 'bound' */
   pcb->local_port = 0;
 
