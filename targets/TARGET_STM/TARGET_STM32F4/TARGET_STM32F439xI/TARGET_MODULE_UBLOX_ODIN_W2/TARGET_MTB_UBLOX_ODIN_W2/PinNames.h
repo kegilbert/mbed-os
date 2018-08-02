@@ -27,7 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *******************************************************************************
  */
- 
+
 #ifndef MBED_PINNAMES_H
 #define MBED_PINNAMES_H
 
@@ -148,32 +148,30 @@ typedef enum {
     //P_TP11,         // BOOT0
 
     // Internal
-    LED1       = PD_9,
-    LED2       = PA_12,
-    LED3       = PD_8,
-    LED4       = PA_11,
-    LED5       = PC_2,
-    LED6       = PA_3,
-    LED7       = PF_6,
     LED_RED    = PE_0,
     LED_GREEN  = PB_6,
     LED_BLUE   = PB_8,
+
+    LED1       = LED_RED,
+    LED2       = LED_GREEN,
+    LED3       = LED_BLUE,
+
     SW1        = PF_2,
     SW2        = PG_4,
 
     // Standardized button names
     BUTTON1    = SW1,
     BUTTON2    = SW2,
-    
+
     I2C_SDA    = PF_0,
     I2C_SCL    = PF_1,
-    
+
     SPI0_MOSI  = PE_14,
     SPI0_MISO  = PE_13,
     SPI0_SCK   = PE_12,
     SPI0_CS    = PE_11,
     SPI1_CS    = PE_9,
- 
+
     SPI_MOSI   = SPI0_MOSI,
     SPI_MISO   = SPI0_MISO,
     SPI_SCK    = SPI0_SCK,
@@ -244,7 +242,7 @@ typedef enum {
     PWM2           = LED_GREEN,
     PWM1           = LED_BLUE,
     PWM0           = LED_RED,
-   
+
 } PinName;
 
 #ifdef __cplusplus

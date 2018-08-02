@@ -29,6 +29,7 @@
 #include "device.h"
 #include "em_usart.h"
 #include "gpio_api.h"
+#include "clocking.h"
 
 gpio_t bc_enable;
 
@@ -115,6 +116,11 @@ void mbed_sdk_init()
 # endif
 #else
 # error "Low energy clock selection not valid"
+#endif
+
+#if defined(RTCC_PRESENT)
+    /* Turn RTCC clock gate back on to keep RTC time correct */
+    CMU_ClockEnable(cmuClock_RTCC, true);
 #endif
 
 #if defined(EFM_BC_EN)

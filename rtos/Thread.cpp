@@ -43,7 +43,11 @@ extern "C" void thread_terminate_hook(osThreadId_t id)
 
 namespace rtos {
 
-void Thread::constructor(osPriority priority,
+#ifndef MBED_TZ_DEFAULT_ACCESS
+#define MBED_TZ_DEFAULT_ACCESS   0
+#endif
+
+void Thread::constructor(uint32_t tz_module, osPriority priority,
         uint32_t stack_size, unsigned char *stack_mem, const char *name) {
 
     const uintptr_t unaligned_mem = reinterpret_cast<uintptr_t>(stack_mem);
@@ -60,21 +64,27 @@ void Thread::constructor(osPriority priority,
     _attr.stack_size = aligned_size;
     _attr.name = name ? name : "application_unnamed_thread";
     _attr.stack_mem = reinterpret_cast<uint32_t*>(aligned_mem);
+    _attr.tz_module = tz_module;
+}
+
+void Thread::constructor(osPriority priority,
+        uint32_t stack_size, unsigned char *stack_mem, const char *name) {
+    constructor(MBED_TZ_DEFAULT_ACCESS, priority, stack_size, stack_mem, name);
 }
 
 void Thread::constructor(Callback<void()> task,
         osPriority priority, uint32_t stack_size, unsigned char *stack_mem, const char *name) {
-    constructor(priority, stack_size, stack_mem, name);
+    constructor(MBED_TZ_DEFAULT_ACCESS, priority, stack_size, stack_mem, name);
 
     switch (start(task)) {
         case osErrorResource:
-            error("OS ran out of threads!\n");
+            MBED_ERROR1(MBED_MAKE_ERROR(MBED_MODULE_PLATFORM, MBED_ERROR_CODE_OUT_OF_RESOURCES), "OS ran out of threads!\n", task);
             break;
         case osErrorParameter:
-            error("Thread already running!\n");
+            MBED_ERROR1(MBED_MAKE_ERROR(MBED_MODULE_PLATFORM, MBED_ERROR_CODE_ALREADY_IN_USE), "Thread already running!\n", task);
             break;
         case osErrorNoMemory:
-            error("Error allocating the stack memory\n");
+            MBED_ERROR1(MBED_MAKE_ERROR(MBED_MODULE_PLATFORM, MBED_ERROR_CODE_OUT_OF_MEMORY), "Error allocating the stack memory\n", task);
         default:
             break;
     }
@@ -95,7 +105,7 @@ osStatus Thread::start(Callback<void()> task) {
 
     //Fill the stack with a magic word for maximum usage checking
     for (uint32_t i = 0; i < (_attr.stack_size / sizeof(uint32_t)); i++) {
-        ((uint32_t *)_attr.stack_mem)[i] = 0xE25A2EA5;
+        ((uint32_t *)_attr.stack_mem)[i] = osRtxStackMagicWord;
     }
 
     memset(&_obj_mem, 0, sizeof(_obj_mem));
@@ -264,7 +274,7 @@ uint32_t Thread::free_stack() {
 
 #if defined(MBED_OS_BACKEND_RTX5)
     if (_tid != NULL) {
-        os_thread_t *thread = (os_thread_t *)_tid;
+        mbed_rtos_storage_thread_t *thread = (mbed_rtos_storage_thread_t *)_tid;
         size = (uint32_t)thread->sp - (uint32_t)thread->stack_mem;
     }
 #endif
@@ -279,7 +289,7 @@ uint32_t Thread::used_stack() {
 
 #if defined(MBED_OS_BACKEND_RTX5)
     if (_tid != NULL) {
-        os_thread_t *thread = (os_thread_t *)_tid;
+        mbed_rtos_storage_thread_t *thread = (mbed_rtos_storage_thread_t *)_tid;
         size = ((uint32_t)thread->stack_mem + thread->stack_size) - thread->sp;
     }
 #endif
@@ -294,9 +304,9 @@ uint32_t Thread::max_stack() {
 
     if (_tid != NULL) {
 #if defined(MBED_OS_BACKEND_RTX5)
-        os_thread_t *thread = (os_thread_t *)_tid;
+        mbed_rtos_storage_thread_t *thread = (mbed_rtos_storage_thread_t *)_tid;
         uint32_t high_mark = 0;
-        while (((uint32_t *)(thread->stack_mem))[high_mark] == 0xE25A2EA5)
+        while ((((uint32_t *)(thread->stack_mem))[high_mark] == osRtxStackMagicWord) || (((uint32_t *)(thread->stack_mem))[high_mark] == osRtxStackFillPattern))
             high_mark++;
         size = thread->stack_size - (high_mark * sizeof(uint32_t));
 #else

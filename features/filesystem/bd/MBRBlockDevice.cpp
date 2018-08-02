@@ -15,6 +15,7 @@
  */
 
 #include "MBRBlockDevice.h"
+#include "mbed_critical.h"
 #include <algorithm>
 
 
@@ -96,6 +97,7 @@ static int partition_absolute(
     table->entries[part-1].type = type;
 
     // lba dimensions
+    MBED_ASSERT(bd->is_valid_erase(offset, size));
     uint32_t sector = std::max<uint32_t>(bd->get_erase_size(), 512);
     uint32_t lba_offset = offset / sector;
     uint32_t lba_size = size / sector;
@@ -105,6 +107,19 @@ static int partition_absolute(
     // chs dimensions
     tochs(lba_offset,            table->entries[part-1].chs_start);
     tochs(lba_offset+lba_size-1, table->entries[part-1].chs_stop);
+
+    // Check that we don't overlap other entries
+    for (int i = 1; i <= 4; i++) {
+        if (i != part && table->entries[i-1].type != 0x00) {
+            uint32_t neighbor_lba_offset = fromle32(table->entries[i-1].lba_offset);
+            uint32_t neighbor_lba_size = fromle32(table->entries[i-1].lba_size);
+            MBED_ASSERT(
+                    (lba_offset >= neighbor_lba_offset + neighbor_lba_size) ||
+                    (lba_offset + lba_size <= neighbor_lba_offset));
+            (void)neighbor_lba_offset;
+            (void)neighbor_lba_size;
+        }
+    }
 
     // Write out MBR
     err = bd->erase(0, bd->get_erase_size());
@@ -180,13 +195,19 @@ int MBRBlockDevice::partition(BlockDevice *bd, int part, uint8_t type,
 }
 
 MBRBlockDevice::MBRBlockDevice(BlockDevice *bd, int part)
-    : _bd(bd), _part(part)
+    : _bd(bd), _part(part), _init_ref_count(0)
 {
     MBED_ASSERT(_part >= 1 && _part <= 4);
 }
 
 int MBRBlockDevice::init()
 {
+    uint32_t val = core_util_atomic_incr_u32(&_init_ref_count, 1);
+
+    if (val != 1) {
+        return BD_ERROR_OK;
+    }
+
     int err = _bd->init();
     if (err) {
         return err;
@@ -227,7 +248,10 @@ int MBRBlockDevice::init()
     _size   = fromle32(table->entries[_part-1].lba_size)   * sector;
 
     // Check that block addresses are valid
-    MBED_ASSERT(_bd->is_valid_erase(_offset, _size));
+    if (!_bd->is_valid_erase(_offset, _size)) {
+        delete[] buffer;
+        return BD_ERROR_INVALID_PARTITION;
+    }
 
     delete[] buffer;
     return 0;
@@ -235,6 +259,12 @@ int MBRBlockDevice::init()
 
 int MBRBlockDevice::deinit()
 {
+    uint32_t val = core_util_atomic_decr_u32(&_init_ref_count, 1);
+
+    if (val) {
+        return BD_ERROR_OK;
+    }
+
     return _bd->deinit();
 }
 
@@ -274,6 +304,11 @@ bd_size_t MBRBlockDevice::get_program_size() const
 bd_size_t MBRBlockDevice::get_erase_size() const
 {
     return _bd->get_erase_size();
+}
+
+bd_size_t MBRBlockDevice::get_erase_size(bd_addr_t addr) const
+{
+    return _bd->get_erase_size(_offset + addr);
 }
 
 int MBRBlockDevice::get_erase_value() const

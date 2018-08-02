@@ -16,7 +16,11 @@
  */
 
 #if defined(TARGET_CORTEX_A)
-    #error [NOT_SUPPORTED] This function not supported for this target
+  #error [NOT_SUPPORTED] This function not supported for this target
+#endif
+
+#if !DEVICE_USTICKER
+  #error [NOT_SUPPORTED] test not supported
 #endif
 
 #include <stdio.h>
@@ -178,7 +182,7 @@ void test_heap_in_range(void)
  */
 void test_main_stack_in_range(void)
 {
-    os_thread_t *thread = (os_thread_t*) osThreadGetId();
+    mbed_rtos_storage_thread_t *thread = (mbed_rtos_storage_thread_t *) osThreadGetId();
 
     uint32_t psp = __get_PSP();
     uint8_t *stack_mem = (uint8_t*) thread->stack_mem;

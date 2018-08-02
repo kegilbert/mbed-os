@@ -6,15 +6,17 @@ from __future__ import print_function, division, absolute_import
 from abc import abstractmethod, ABCMeta
 from sys import stdout, exit, argv
 from os import sep
-from os.path import basename, dirname, join, relpath, commonprefix
+from os.path import (basename, dirname, join, relpath, abspath, commonprefix,
+                     splitext)
 import re
 import csv
 import json
-import math
 from argparse import ArgumentParser
 from copy import deepcopy
+from collections import defaultdict
 from prettytable import PrettyTable
-from tools.arm_pack_manager import Cache
+from jinja2 import FileSystemLoader, StrictUndefined
+from jinja2.environment import Environment
 
 from .utils import (argparse_filestring_type, argparse_lowercase_hyphen_type,
                     argparse_uppercase_type)
@@ -56,7 +58,8 @@ class _Parser(object):
                 contents[section] += size
                 return
 
-        new_module = {section: size}
+        new_module = defaultdict(int)
+        new_module[section] = size
         self.modules[object_name] = new_module
 
     def module_replace(self, old_object, new_object):
@@ -81,7 +84,7 @@ class _Parser(object):
 
 class _GccParser(_Parser):
     RE_OBJECT_FILE = re.compile(r'^(.+\/.+\.o)$')
-    RE_LIBRARY_OBJECT = re.compile(r'^.+' + sep + r'lib((.+\.a)\((.+\.o)\))$')
+    RE_LIBRARY_OBJECT = re.compile(r'^.+' + r''.format(sep) + r'lib((.+\.a)\((.+\.o)\))$')
     RE_STD_SECTION = re.compile(r'^\s+.*0x(\w{8,16})\s+0x(\w+)\s(.+)$')
     RE_FILL_SECTION = re.compile(r'^\s*\*fill\*\s+0x(\w{8,16})\s+0x(\w+).*$')
 
@@ -479,6 +482,9 @@ class MemapParser(object):
         # Flash no associated with a module
         self.misc_flash_mem = 0
 
+        # Name of the toolchain, for better headings
+        self.tc_name = None
+
     def reduce_depth(self, depth):
         """
         populates the short_modules attribute with a truncated module list
@@ -502,14 +508,14 @@ class MemapParser(object):
                 if split_name[0] == '':
                     split_name = split_name[1:]
                 new_name = join(*split_name[:depth])
-                self.short_modules.setdefault(new_name, {})
+                self.short_modules.setdefault(new_name, defaultdict(int))
                 for section_idx, value in v.items():
                     self.short_modules[new_name].setdefault(section_idx, 0)
                     self.short_modules[new_name][section_idx] += self.modules[module_name][section_idx]
 
-    export_formats = ["json", "csv-ci", "table"]
+    export_formats = ["json", "csv-ci", "html", "table"]
 
-    def generate_output(self, export_format, depth, file_output=None, *args):
+    def generate_output(self, export_format, depth, file_output=None):
         """ Generates summary of memory map data
 
         Positional arguments:
@@ -521,7 +527,8 @@ class MemapParser(object):
 
         Returns: generated string for the 'table' format, otherwise None
         """
-        self.reduce_depth(depth)
+        if depth is None or depth > 0:
+            self.reduce_depth(depth)
         self.compute_report()
         try:
             if file_output:
@@ -533,15 +540,89 @@ class MemapParser(object):
             return False
 
         to_call = {'json': self.generate_json,
+                   'html': self.generate_html,
                    'csv-ci': self.generate_csv,
-                   'table': self.generate_table,
-                   'bars': self.generate_bars}[export_format]
-        output = to_call(file_desc, *args)
+                   'table': self.generate_table}[export_format]
+        output = to_call(file_desc)
 
         if file_desc is not stdout:
             file_desc.close()
 
         return output
+
+    @staticmethod
+    def _move_up_tree(tree, next_module):
+        tree.setdefault("children", [])
+        for child in tree["children"]:
+            if child["name"] == next_module:
+                return child
+        else:
+            new_module = {"name": next_module, "value": 0}
+            tree["children"].append(new_module)
+            return new_module
+
+    def generate_html(self, file_desc):
+        """Generate a json file from a memory map for D3
+
+        Positional arguments:
+        file_desc - the file to write out the final report to
+        """
+        tree_text = {"name": ".text", "value": 0}
+        tree_bss = {"name": ".bss", "value": 0}
+        tree_data = {"name": ".data", "value": 0}
+        for name, dct in self.modules.items():
+            cur_text = tree_text
+            cur_bss = tree_bss
+            cur_data = tree_data
+            modules = name.split(sep)
+            while True:
+                try:
+                    cur_text["value"] += dct['.text']
+                except KeyError:
+                    pass
+                try:
+                    cur_bss["value"] += dct['.bss']
+                except KeyError:
+                    pass
+                try:
+                    cur_data["value"] += dct['.data']
+                except KeyError:
+                    pass
+                if not modules:
+                    break
+                next_module = modules.pop(0)
+                cur_text = self._move_up_tree(cur_text, next_module)
+                cur_data = self._move_up_tree(cur_data, next_module)
+                cur_bss = self._move_up_tree(cur_bss, next_module)
+
+        tree_rom = {
+            "name": "ROM",
+            "value": tree_text["value"] + tree_data["value"],
+            "children": [tree_text, tree_data]
+        }
+        tree_ram = {
+            "name": "RAM",
+            "value": tree_bss["value"] + tree_data["value"],
+            "children": [tree_bss, tree_data]
+        }
+
+        jinja_loader = FileSystemLoader(dirname(abspath(__file__)))
+        jinja_environment = Environment(loader=jinja_loader,
+                                        undefined=StrictUndefined)
+
+        template = jinja_environment.get_template("memap_flamegraph.html")
+        name, _ = splitext(basename(file_desc.name))
+        if name.endswith("_map"):
+            name = name[:-4]
+        if self.tc_name:
+            name = "%s %s" % (name, self.tc_name)
+        data = {
+            "name": name,
+            "rom": json.dumps(tree_rom),
+            "ram": json.dumps(tree_ram),
+        }
+        file_desc.write(template.render(data))
+        return None
 
     def generate_json(self, file_desc):
         """Generate a json file from a memory map
@@ -620,71 +701,6 @@ class MemapParser(object):
 
         return output
 
-    def generate_bars(self, file_desc, device_name=None):
-        """ Generates nice looking bars that represent the memory consumption
-
-        Returns: string containing nice looking bars
-        """
-
-        # TODO add tty detection, and width detection probably
-        WIDTH = 72
-        try:
-            # NOTE this only works on linux
-            import sys, fcntl, termios, struct
-            height, width, _, _ = struct.unpack('HHHH',
-                fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ,
-                    struct.pack('HHHH', 0, 0, 0, 0)))
-            WIDTH = min(width, WIDTH)
-        except Exception:
-            pass
-
-        text = self.subtotal['.text']
-        data = self.subtotal['.data']
-        bss = self.subtotal['.bss']
-        rom_used = self.mem_summary['total_flash']
-        ram_used = self.mem_summary['static_ram']
-
-        # No device_name = no cmsis-pack = we don't know the memory layout
-        if device_name is not None:
-            try:
-                cache = Cache(False, False)
-                cmsis_part = cache.index[device_name]
-                rom_avail = int(cmsis_part['memory']['IROM1']['size'], 0)
-                ram_avail = int(cmsis_part['memory']['IRAM1']['size'], 0)
-            except KeyError:
-                # If we don't have the expected regions, fall back to no device_name
-                device_name = None
-
-        PREFIXES = ['', 'K', 'M', 'G', 'T', 'P', 'E']
-        def unit(n, u='B', p=3):
-            if n == 0:
-                return '0' + u
-
-            scale = math.floor(math.log(n, 1024))
-            return '{1:.{0}g}{2}{3}'.format(p, n/(1024**scale), PREFIXES[int(scale)], u)
-
-        usage = "Text {} Data {} BSS {}".format(unit(text), unit(data), unit(bss))
-        avail = "ROM {} RAM {}".format(unit(rom_used), unit(ram_used))
-        output = ["{0} {1:>{2}}".format(usage, avail,
-            abs(WIDTH-len(usage)-1) if device_name is not None else 0)]
-
-        if device_name is not None:
-            for region, avail, uses in [
-                    ('ROM', rom_avail, [('|', text), ('|', data)]),
-                    ('RAM', ram_avail, [('|', bss), ('|', data)])]:
-                barwidth = WIDTH-17 - len(region)
-
-                used = sum(use for c, use in uses)
-                bars = [(c, (barwidth*use) // avail) for c, use in uses]
-                bars.append((' ', barwidth - sum(width for c, width in bars)))
-                bars = ''.join(c*width for c, width in bars)
-
-                output.append("{0} [{2:<{1}}] {3:>13}".format(
-                    region, barwidth, bars,
-                    "{}/{}".format(unit(used), unit(avail))))
-
-        return '\n'.join(output)
-
     toolchains = ["ARM", "ARM_STD", "ARM_MICRO", "GCC_ARM", "GCC_CR", "IAR"]
 
     def compute_report(self):
@@ -693,10 +709,9 @@ class MemapParser(object):
         for k in self.sections:
             self.subtotal[k] = 0
 
-        for i in self.short_modules:
+        for mod in self.modules.values():
             for k in self.sections:
-                self.short_modules[i].setdefault(k, 0)
-                self.subtotal[k] += self.short_modules[i][k]
+                self.subtotal[k] += mod[k]
 
         self.mem_summary = {
             'static_ram': (self.subtotal['.data'] + self.subtotal['.bss']),
@@ -704,13 +719,14 @@ class MemapParser(object):
         }
 
         self.mem_report = []
-        for i in sorted(self.short_modules):
-            self.mem_report.append({
-                "module":i,
-                "size":{
-                    k: self.short_modules[i][k] for k in self.print_sections
-                }
-            })
+        if self.short_modules:
+            for name, sizes in sorted(self.short_modules.items()):
+                self.mem_report.append({
+                    "module": name,
+                    "size":{
+                        k: sizes.get(k, 0) for k in self.print_sections
+                    }
+                })
 
         self.mem_report.append({
             'summary': self.mem_summary
@@ -723,6 +739,7 @@ class MemapParser(object):
         mapfile - the file name of the memory map file
         toolchain - the toolchain used to create the file
         """
+        self.tc_name = toolchain.title()
         if toolchain in ("ARM", "ARM_STD", "ARM_MICRO", "ARMC6"):
             parser = _ArmccParser()
         elif toolchain == "GCC_ARM" or toolchain == "GCC_CR":

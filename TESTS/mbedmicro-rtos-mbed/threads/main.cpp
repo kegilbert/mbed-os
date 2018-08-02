@@ -25,8 +25,14 @@
   #error [NOT_SUPPORTED] test not supported
 #endif
 
+#if !DEVICE_USTICKER
+  #error [NOT_SUPPORTED] test not supported
+#endif
+
 #define THREAD_STACK_SIZE 512
 #if defined(__CORTEX_A9)
+#define PARALLEL_THREAD_STACK_SIZE 512
+#elif defined(__CORTEX_M23) || defined(__CORTEX_M33)
 #define PARALLEL_THREAD_STACK_SIZE 512
 #else
 #define PARALLEL_THREAD_STACK_SIZE 384

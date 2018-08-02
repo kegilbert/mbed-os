@@ -221,8 +221,7 @@ static const uint8_t max_payload_with_repeater_AU915[] = { 51, 51, 51, 115,
     222, 222, 222, 0, 33, 109, 222, 222, 222, 222, 0, 0 };
 
 
-LoRaPHYAU915::LoRaPHYAU915(LoRaWANTimeHandler &lora_time)
-        : LoRaPHY(lora_time)
+LoRaPHYAU915::LoRaPHYAU915()
 {
     bands[0] = AU915_BAND0;
 
@@ -263,15 +262,22 @@ LoRaPHYAU915::LoRaPHYAU915(LoRaWANTimeHandler &lora_time)
     // transmission on the same channel
     copy_channel_mask(current_channel_mask, channel_mask, AU915_CHANNEL_MASK_SIZE);
 
-    // set bands for EU868 spectrum
+    // set default channels
+    phy_params.channels.channel_list = channels;
+    phy_params.channels.channel_list_size = AU915_MAX_NB_CHANNELS;
+    phy_params.channels.mask = channel_mask;
+    phy_params.channels.default_mask = default_channel_mask;
+    phy_params.channels.mask_size = AU915_CHANNEL_MASK_SIZE;
+
+    // set bands for AU915 spectrum
     phy_params.bands.table = (void *) bands;
     phy_params.bands.size = AU915_MAX_NB_BANDS;
 
-    // set bandwidths available in EU868 spectrum
+    // set bandwidths available in AU915 spectrum
     phy_params.bandwidths.table = (void *) bandwidths_AU915;
     phy_params.bandwidths.size = 16;
 
-    // set data rates available in EU868 spectrum
+    // set data rates available in AU915 spectrum
     phy_params.datarates.table = (void *) datarates_AU915;
     phy_params.datarates.size = 16;
 
@@ -279,7 +285,7 @@ LoRaPHYAU915::LoRaPHYAU915(LoRaWANTimeHandler &lora_time)
     phy_params.payloads.table = (void *) max_payload_AU915;
     phy_params.payloads.size = 16;
     phy_params.payloads_with_repeater.table = (void *) max_payload_with_repeater_AU915;
-    phy_params.payloads.size = 16;
+    phy_params.payloads_with_repeater.size = 16;
 
     // dwell time setting
     phy_params.ul_dwell_time_setting = 0;
@@ -328,7 +334,7 @@ LoRaPHYAU915::~LoRaPHYAU915()
 {
 }
 
-bool LoRaPHYAU915::rx_config(rx_config_params_t* params, int8_t* datarate)
+bool LoRaPHYAU915::rx_config(rx_config_params_t* params)
 {
     int8_t dr = params->datarate;
     uint8_t max_payload = 0;
@@ -367,7 +373,6 @@ bool LoRaPHYAU915::rx_config(rx_config_params_t* params, int8_t* datarate)
 
     _radio->unlock();
 
-    *datarate = (uint8_t) dr;
     return true;
 }
 
@@ -555,9 +560,9 @@ int8_t LoRaPHYAU915::get_alternate_DR(uint8_t nb_trials)
     return datarate;
 }
 
-bool LoRaPHYAU915::set_next_channel(channel_selection_params_t* next_chan_params,
-                                    uint8_t* channel, lorawan_time_t* time,
-                                    lorawan_time_t* aggregated_timeOff)
+lorawan_status_t LoRaPHYAU915::set_next_channel(channel_selection_params_t* next_chan_params,
+                                                uint8_t* channel, lorawan_time_t* time,
+                                                lorawan_time_t* aggregated_timeOff)
 {
     uint8_t nb_enabled_channels = 0;
     uint8_t delay_tx = 0;
@@ -578,7 +583,7 @@ bool LoRaPHYAU915::set_next_channel(channel_selection_params_t* next_chan_params
         }
     }
 
-    if (next_chan_params->aggregate_timeoff <= _lora_time.get_elapsed_time(next_chan_params->last_aggregate_tx_time)) {
+    if (next_chan_params->aggregate_timeoff <= _lora_time->get_elapsed_time(next_chan_params->last_aggregate_tx_time)) {
         // Reset Aggregated time off
         *aggregated_timeOff = 0;
 
@@ -594,7 +599,7 @@ bool LoRaPHYAU915::set_next_channel(channel_selection_params_t* next_chan_params
                                                      enabled_channels, &delay_tx);
     } else {
         delay_tx++;
-        next_tx_delay = next_chan_params->aggregate_timeoff - _lora_time.get_elapsed_time(next_chan_params->last_aggregate_tx_time);
+        next_tx_delay = next_chan_params->aggregate_timeoff - _lora_time->get_elapsed_time(next_chan_params->last_aggregate_tx_time);
     }
 
     if (nb_enabled_channels > 0) {
@@ -605,16 +610,16 @@ bool LoRaPHYAU915::set_next_channel(channel_selection_params_t* next_chan_params
         AU915_MAX_NB_CHANNELS - 8);
 
         *time = 0;
-        return true;
+        return LORAWAN_STATUS_OK;
     } else {
         if (delay_tx > 0) {
             // Delay transmission due to AggregatedTimeOff or to a band time off
             *time = next_tx_delay;
-            return true;
+            return LORAWAN_STATUS_DUTYCYCLE_RESTRICTED;
         }
         // Datarate not supported by any channel
         *time = 0;
-        return false;
+        return LORAWAN_STATUS_NO_CHANNEL_FOUND;
     }
 }
 

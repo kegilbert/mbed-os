@@ -230,15 +230,17 @@ static const uint8_t max_payloads_CN779[] = {51, 51, 51, 115, 242, 242, 242, 242
 static const uint8_t max_payloads_with_repeater_CN779[] = {51, 51, 51, 115, 222, 222, 222, 222};
 
 
-LoRaPHYCN779::LoRaPHYCN779(LoRaWANTimeHandler &lora_time)
-        : LoRaPHY(lora_time)
+LoRaPHYCN779::LoRaPHYCN779()
 {
     bands[0] = CN779_BAND0;
 
     // Channels
     channels[0] = CN779_LC1;
+    channels[0].band = 0;
     channels[1] = CN779_LC2;
+    channels[1].band = 0;
     channels[2] = CN779_LC3;
+    channels[2].band = 0;
 
     // Initialize the channels default mask
     default_channel_mask[0] = LC(1) + LC(2) + LC(3);
@@ -268,7 +270,7 @@ LoRaPHYCN779::LoRaPHYCN779(LoRaWANTimeHandler &lora_time)
     phy_params.payloads.table = (void *) max_payloads_CN779;
     phy_params.payloads.size = 8;
     phy_params.payloads_with_repeater.table = (void *) max_payloads_with_repeater_CN779;
-    phy_params.payloads.size = 8;
+    phy_params.payloads_with_repeater.size = 8;
 
     // dwell time setting
     phy_params.ul_dwell_time_setting = 0;

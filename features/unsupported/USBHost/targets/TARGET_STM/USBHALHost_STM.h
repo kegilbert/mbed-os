@@ -47,8 +47,8 @@ typedef struct {
      *  endpoint */
     volatile uint32_t addr[MAX_ENDPOINT];
     USBHALHost *inst;
-    void (USBHALHost::*deviceConnected)(int hub, int port, bool lowSpeed, USBHostHub * hub_parent);
-    void (USBHALHost::*deviceDisconnected)(int hub, int port, USBHostHub * hub_parent, volatile uint32_t addr);
+    void (USBHALHost::*deviceConnected)(int hub, int port, bool lowSpeed, USBHostHub *hub_parent);
+    void (USBHALHost::*deviceDisconnected)(int hub, int port, USBHostHub *hub_parent, volatile uint32_t addr);
     void (USBHALHost::*transferCompleted)(volatile uint32_t addr);
 } USBHALHost_Private_t;
 
@@ -120,7 +120,7 @@ static gpio_t gpio_powerpin;
 #endif
 
 
-void usb_vbus( uint8_t state)
+void usb_vbus(uint8_t state)
 {
     if (state == 0) {
         gpio_write(&gpio_powerpin, USB_POWER_OFF);
@@ -135,14 +135,14 @@ USBHALHost::USBHALHost()
 {
     instHost = this;
     HCD_HandleTypeDef *hhcd = {0};
-    USBHALHost_Private_t *HALPriv = new(USBHALHost_Private_t);
+    USBHALHost_Private_t *HALPriv = new (USBHALHost_Private_t);
 
     memset(HALPriv, 0, sizeof(USBHALHost_Private_t));
     memInit();
-    memset((void*)usb_hcca, 0, HCCA_SIZE);
+    memset((void *)usb_hcca, 0, HCCA_SIZE);
 
     hhcd = (HCD_HandleTypeDef *)usb_hcca;
-    hhcd->pData = (void*)HALPriv;
+    hhcd->pData = (void *)HALPriv;
 
 #if defined(TARGET_DISCO_F746NG_HS) || defined(TARGET_DISCO_F769NI)
     hhcd->Instance = USB_OTG_HS;
@@ -169,7 +169,7 @@ USBHALHost::USBHALHost()
 
     for (int i = 0; i < MAX_ENDPOINT; i++) {
         edBufAlloc[i] = false;
-        HALPriv->addr[i] = (uint32_t)-1;
+        HALPriv->addr[i] = (uint32_t) - 1;
     }
 
     for (int i = 0; i < MAX_TD; i++) {
@@ -258,6 +258,11 @@ USBHALHost::USBHALHost()
     pin_function(PA_12, STM_PIN_DATA(STM_MODE_AF_PP, GPIO_NOPULL, GPIO_AF10_OTG_FS)); // DP
     pin_function(PA_10, STM_PIN_DATA(STM_MODE_AF_OD, GPIO_PULLUP, GPIO_AF10_OTG_FS)); // ID
     pin_function(PC_11, STM_PIN_DATA(STM_MODE_AF_PP, GPIO_NOPULL, GPIO_AF10_OTG_FS)); // VBUS
+
+#elif defined(TARGET_STEVAL_3DP001V1)
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    pin_function(PA_11, STM_PIN_DATA(STM_MODE_AF_PP, GPIO_NOPULL, GPIO_AF10_OTG_FS)); // DM
+    pin_function(PA_12, STM_PIN_DATA(STM_MODE_AF_PP, GPIO_NOPULL, GPIO_AF10_OTG_FS)); // DP
 
 #else
 #error "USB pins are not configured !"

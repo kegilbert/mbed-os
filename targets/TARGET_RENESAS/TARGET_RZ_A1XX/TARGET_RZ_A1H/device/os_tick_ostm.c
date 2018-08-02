@@ -131,7 +131,7 @@ int32_t OS_Tick_Setup (uint32_t freq, IRQHandler_t handler)
 }
 
 /// Enable OS Tick.
-int32_t  OS_Tick_Enable (void)
+void  OS_Tick_Enable (void)
 {
 
   if (OSTM_PendIRQ != 0U) {
@@ -141,12 +141,10 @@ int32_t  OS_Tick_Enable (void)
 
   // Start the OSTM counter
   OSTM.OSTMnTS = 0x01U;
-
-  return (0);
 }
 
 /// Disable OS Tick.
-int32_t  OS_Tick_Disable (void)
+void  OS_Tick_Disable (void)
 {
 
   // Stop the OSTM counter
@@ -156,14 +154,12 @@ int32_t  OS_Tick_Disable (void)
     IRQ_ClearPending (OSTM_IRQn);
     OSTM_PendIRQ = 1U;
   }
-
-  return (0);
 }
 
 // Acknowledge OS Tick IRQ.
-int32_t OS_Tick_AcknowledgeIRQ (void)
+void  OS_Tick_AcknowledgeIRQ (void)
 {
-  return (IRQ_ClearPending (OSTM_IRQn));
+  IRQ_ClearPending (OSTM_IRQn);
 }
 
 // Get OS Tick IRQ number.
@@ -197,5 +193,9 @@ uint32_t OS_Tick_GetOverflow (void)
   return (IRQ_GetPending(OSTM_IRQn));
 }
 
+// Get Cortex-A9 OS Timer interrupt number
+IRQn_ID_t mbed_get_a9_tick_irqn(){
+  return OSTMI0TINT_IRQn;
+}
 #endif
 

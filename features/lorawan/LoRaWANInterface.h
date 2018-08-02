@@ -19,9 +19,12 @@
 #define LORAWANINTERFACE_H_
 
 #include "platform/Callback.h"
-#include "lorawan/LoRaWANStack.h"
-#include "lorawan/LoRaRadio.h"
-#include "lorawan/LoRaWANBase.h"
+#include "platform/ScopedLock.h"
+#include "LoRaWANStack.h"
+#include "LoRaRadio.h"
+#include "LoRaWANBase.h"
+
+class LoRaPHY;
 
 class LoRaWANInterface: public LoRaWANBase {
 
@@ -32,8 +35,19 @@ public:
      * Currently, LoRaWANStack is a singleton and you should only
      * construct a single instance of LoRaWANInterface.
      *
+     * LoRaWANInterface will construct PHY based on "lora.phy" setting in mbed_app.json.
+     *
+     * @param radio A reference to radio object
      */
-    LoRaWANInterface(LoRaRadio& radio);
+    LoRaWANInterface(LoRaRadio &radio);
+
+    /** Constructs a LoRaWANInterface using the user provided PHY object.
+
+     * @param radio A reference to radio object
+     * @param phy   A reference to PHY object
+     */
+    LoRaWANInterface(LoRaRadio &radio, LoRaPHY &phy);
+
     virtual ~LoRaWANInterface();
 
     /** Initialize the LoRa stack.
@@ -44,7 +58,7 @@ public:
      *
      * @return         0 on success, a negative error code on failure.
      */
-    virtual lorawan_status_t initialize(events::EventQueue *ev_queue) ;
+    virtual lorawan_status_t initialize(events::EventQueue *ev_queue);
 
     /** Connect OTAA or ABP using Mbed-OS config system
      *
@@ -59,7 +73,6 @@ public:
      * all user-configured channels except the Join/Default channels. A CF-List can
      * configure a maximum of five channels other than the default channels.
      *
-     * In case of ABP, the CONNECTED event is posted before the call to `connect()` returns.
      * To configure more channels, we recommend that you use the `set_channel_plan()` API after the connection.
      * By default, the PHY layers configure only the mandatory Join channels. The retransmission back-off restrictions
      * on these channels are severe and you may experience long delays or even failures in the confirmed traffic.
@@ -78,8 +91,14 @@ public:
      * is important, at least for ABP. That's why we try to restore frame counters from
      * session information after a disconnection.
      *
-     * @return         LORAWAN_STATUS_OK or LORAWAN_STATUS_CONNECT_IN_PROGRESS
-     *                 on success, or a negative error code on failure.
+     * @return    For ABP:  If everything goes well, LORAWAN_STATUS_OK is returned for first call followed by
+     *                      a 'CONNECTED' event. Otherwise a negative error code is returned.
+     *                      Any subsequent call will return LORAWAN_STATUS_ALREADY_CONNECTED and no event follows.
+     *
+     *            For OTAA: When a JoinRequest is sent, LORAWAN_STATUS_CONNECT_IN_PROGRESS is returned for the first call.
+     *                      Any subsequent call will return either LORAWAN_STATUS_BUSY (if the previous request for connection
+     *                      is still underway) or LORAWAN_STATUS_ALREADY_CONNECTED (if a network was already joined successfully).
+     *                      A 'CONNECTED' event is sent to the application when the JoinAccept is received.
      */
     virtual lorawan_status_t connect();
 
@@ -95,7 +114,6 @@ public:
      * all user-configured channels except the Join/Default channels. A CF-List can
      * configure a maximum of five channels other than the default channels.
      *
-     * In case of ABP, the CONNECTED event is posted before the call to `connect()` returns.
      * To configure more channels, we recommend that you use the `set_channel_plan()` API after the connection.
      * By default, the PHY layers configure only the mandatory Join
      * channels. The retransmission back-off restrictions on these channels
@@ -118,8 +136,14 @@ public:
      *
      * @param connect  Options for an end device connection to the gateway.
      *
-     * @return        LORAWAN_STATUS_OK or LORAWAN_STATUS_CONNECT_IN_PROGRESS,
-     *                a negative error code on failure.
+     * @return    For ABP:  If everything goes well, LORAWAN_STATUS_OK is returned for first call followed by
+     *                      a 'CONNECTED' event. Otherwise a negative error code is returned.
+     *                      Any subsequent call will return LORAWAN_STATUS_ALREADY_CONNECTED and no event follows.
+     *
+     *            For OTAA: When a JoinRequest is sent, LORAWAN_STATUS_CONNECT_IN_PROGRESS is returned for the first call.
+     *                      Any subsequent call will return either LORAWAN_STATUS_BUSY (if the previous request for connection
+     *                      is still underway) or LORAWAN_STATUS_ALREADY_CONNECTED (if a network was already joined successfully).
+     *                      A 'CONNECTED' event is sent to the application when the JoinAccept is received.
      */
     virtual lorawan_status_t connect(const lorawan_connect_t &connect);
 
@@ -299,24 +323,19 @@ public:
      *                          MSG_CONFIRMED_FLAG = 0x02
      *                          MSG_MULTICAST_FLAG = 0x04
      *                          MSG_PROPRIETARY_FLAG = 0x08
-     *                          MSG_MULTICAST_FLAG and MSG_PROPRIETARY_FLAG can be
-     *                          used in conjunction with MSG_UNCONFIRMED_FLAG and
-     *                          MSG_CONFIRMED_FLAG depending on the intended use.
      *
-     *                          MSG_PROPRIETARY_FLAG|MSG_CONFIRMED_FLAG mask will set
-     *                          a confirmed message flag for a proprietary message.
-     *                          MSG_CONFIRMED_FLAG and MSG_UNCONFIRMED_FLAG are
-     *                          mutually exclusive.
+     *                          All flags are mutually exclusive, and MSG_MULTICAST_FLAG
+     *                          cannot be set.
      *
      *
      * @return                  The number of bytes sent, or
      *                          LORAWAN_STATUS_WOULD_BLOCK if another TX is
      *                          ongoing, or a negative error code on failure.
      */
-    virtual int16_t send(uint8_t port, const uint8_t* data, uint16_t length,
+    virtual int16_t send(uint8_t port, const uint8_t *data, uint16_t length,
                          int flags);
 
-    /** Receives a message from the Network Server.
+    /** Receives a message from the Network Server on a specific port.
      *
      * @param port              The application port number. Port numbers 0 and 224
      *                          are reserved, whereas port numbers from 1 to 223
@@ -336,14 +355,11 @@ public:
      *                          MSG_MULTICAST_FLAG = 0x04,
      *                          MSG_PROPRIETARY_FLAG = 0x08
      *
-     *                          MSG_MULTICAST_FLAG and MSG_PROPRIETARY_FLAG can be
-     *                          used in conjunction with MSG_UNCONFIRMED_FLAG and
-     *                          MSG_CONFIRMED_FLAG depending on the intended use.
+     *                          All flags can be used in conjunction with
+     *                          one another depending on the intended use case or reception
+     *                          expectation.
      *
-     *                          MSG_PROPRIETARY_FLAG|MSG_CONFIRMED_FLAG mask will set
-     *                          a confirmed message flag for a proprietary message.
-     *
-     *                          MSG_CONFIRMED_FLAG and MSG_UNCONFIRMED_FLAG are
+     *                          e.g., MSG_CONFIRMED_FLAG and MSG_UNCONFIRMED_FLAG are
      *                          not mutually exclusive, i.e., the user can subscribe to
      *                          receive both CONFIRMED AND UNCONFIRMED messages at
      *                          the same time.
@@ -355,81 +371,172 @@ public:
      *                                  nothing available to read at the moment.
      *                             iv)  A negative error code on failure.
      */
-    virtual int16_t receive(uint8_t port, uint8_t* data, uint16_t length,
-                            int flags);
+    virtual int16_t receive(uint8_t port, uint8_t *data, uint16_t length, int flags);
+
+    /** Receives a message from the Network Server on any port.
+     *
+     * @param data              A pointer to buffer where the received data will be
+     *                          stored.
+     *
+     * @param length            The size of data in bytes
+     *
+     * @param port              Return the number of port to which message was received.
+     *
+     * @param flags             Return flags to determine what type of message was received.
+     *                          MSG_UNCONFIRMED_FLAG = 0x01
+     *                          MSG_CONFIRMED_FLAG = 0x02
+     *                          MSG_MULTICAST_FLAG = 0x04
+     *                          MSG_PROPRIETARY_FLAG = 0x08
+     *
+     * @return                  It could be one of these:
+     *                             i)   0 if there is nothing else to read.
+     *                             ii)  Number of bytes written to user buffer.
+     *                             iii) LORAWAN_STATUS_WOULD_BLOCK if there is
+     *                                  nothing available to read at the moment.
+     *                             iv)  A negative error code on failure.
+     */
+    virtual int16_t receive(uint8_t *data, uint16_t length, uint8_t &port, int &flags);
 
     /** Add application callbacks to the stack.
-       *
-       * 'lorawan_app_callbacks' is a structure that holds pointers to the application
-       * provided methods which are needed to be called in response to certain
-       * requests. The structure is default constructed to set all pointers to NULL.
-       * So if the user does not provide the pointer, a response will not be posted.
-       * However, the 'lorawan_events' callback is mandatory to be provided as it
-       * contains essential events.
-       *
-       * Events that can be posted to user via 'lorawan_events' are:
-       *
-       * CONNECTED            - When the connection is complete
-       * DISCONNECTED         - When the protocol is shut down in response to disconnect()
-       * TX_DONE              - When a packet is sent
-       * TX_TIMEOUT,          - When stack was unable to send packet in TX window
-       * TX_ERROR,            - A general TX error
-       * TX_CRYPTO_ERROR,     - If MIC fails, or any other crypto relted error
-       * TX_SCHEDULING_ERROR, - When stack is unable to schedule packet
-       * RX_DONE,             - When there is something to receive
-       * RX_TIMEOUT,          - Not yet mapped
-       * RX_ERROR             - A general RX error
-       *
-       * Other responses to certain standard requests are an item for the future.
-       * For example, a link check request could be sent whenever the device tries
-       * to send a message and if the network server responds with a link check resposne,
-       * the stack notifies the application be calling the appropriate method. For example,
-       * 'link_check_resp' callback could be used to collect a response for a link check
-       * request MAC command and the result is thus transported to the application
-       * via callback function provided.
-       *
-       * As can be seen from declaration, mbed::Callback<void(uint8_t, uint8_t)> *link_check_resp)
-       * carries two parameters. First one is Demodulation Margin and the second one
-       * is number of gateways involved in the path to network server.
-       *
-       * An example of using this API with a latch onto 'lorawan_events' could be:
-       *
-       * LoRaWANInterface lorawan(radio);
-       * lorawan_app_callbacks cbs;
-       * static void my_event_handler();
-       *
-       * int main()
-       * {
-       * lorawan.initialize(&queue);
-       *  cbs.events = mbed::callback(my_event_handler);
-       *  lorawan.add_app_callbacks(&cbs);
-       *  lorawan.connect();
-       * }
-       *
-       * static void my_event_handler(lora_events_t events)
-       * {
-       *  switch(events) {
-       *      case CONNECTED:
-       *          //do something
-       *          break;
-       *      case DISCONNECTED:
-       *          //do something
-       *          break;
-       *      case TX_DONE:
-       *          //do something
-       *          break;
-       *      default:
-       *          break;
-       *  }
-       * }
-       *
-       * @param callbacks         A pointer to the structure containing application
-       *                          callbacks.
-       */
+     *
+     * An example of using this API with a latch onto 'lorawan_events' could be:
+     *
+     * LoRaWANInterface lorawan(radio);
+     * lorawan_app_callbacks_t cbs;
+     * static void my_event_handler();
+     *
+     * int main()
+     * {
+     * lorawan.initialize();
+     *  cbs.lorawan_events = mbed::callback(my_event_handler);
+     *  lorawan.add_app_callbacks(&cbs);
+     *  lorawan.connect();
+     * }
+     *
+     * static void my_event_handler(lorawan_event_t event)
+     * {
+     *  switch(event) {
+     *      case CONNECTED:
+     *          //do something
+     *          break;
+     *      case DISCONNECTED:
+     *          //do something
+     *          break;
+     *      case TX_DONE:
+     *          //do something
+     *          break;
+     *      default:
+     *          break;
+     *  }
+     * }
+     *
+     * @param callbacks         A pointer to the structure containing application
+     *                          callbacks.
+     *
+     * @return                  LORAWAN_STATUS_OK on success, a negative error
+     *                          code on failure.
+     */
     virtual lorawan_status_t add_app_callbacks(lorawan_app_callbacks_t *callbacks);
 
+    /** Change device class
+     *
+     * Change current device class.
+     *
+     * @param    device_class   The device class
+     *
+     * @return                  LORAWAN_STATUS_OK on success,
+     *                          LORAWAN_STATUS_UNSUPPORTED is requested class is not supported,
+     *                          or other negative error code if request failed.
+     */
+    virtual lorawan_status_t set_device_class(const device_class_t device_class);
+
+    /** Get hold of TX meta-data
+     *
+     * Use this method to acquire any TX meta-data related to previous
+     * transmission.
+     * TX meta-data is only available right after the transmission is completed.
+     * In other words, you can check for TX meta-data right after receiving the
+     * TX_DONE event.
+     *
+     * @param    metadata    the inbound structure that will be filled if the meta-data
+     *                       is available.
+     *
+     * @return               LORAWAN_STATUS_OK if the meta-data is available, otherwise
+     *                       LORAWAN_STATUS_METADATA_NOT_AVAILABLE is returned.
+     */
+    virtual lorawan_status_t get_tx_metadata(lorawan_tx_metadata &metadata);
+
+    /** Get hold of RX meta-data
+     *
+     * Use this method to acquire any RX meta-data related to current
+     * reception.
+     * RX meta-data is only available right after the reception is completed.
+     * In other words, you can check for RX meta-data right after receiving the
+     * RX_DONE event.
+     *
+     * @param    metadata    the inbound structure that will be filled if the meta-data
+     *                       is available.
+     *
+     * @return               LORAWAN_STATUS_OK if the meta-data is available, otherwise
+     *                       LORAWAN_STATUS_METADATA_NOT_AVAILABLE is returned.
+     */
+    virtual lorawan_status_t get_rx_metadata(lorawan_rx_metadata &metadata);
+
+    /** Get hold of backoff time
+     *
+     * In the TX path, because of automatic duty cycling, the transmission is delayed
+     * by a certain amount of time which is the backoff time. While the system schedules
+     * application data to be sent, the application can inquire about how much time is
+     * left in the actual transmission to happen.
+     *
+     * The system will provide you with a backoff time only if the application data is
+     * in the TX pipe. If however, the event is already queued for the transmission, this
+     * API returns a LORAWAN_STATUS_METADATA_NOT_AVAILABLE error code.
+     *
+     * @param    backoff    the inbound integer that will be carry the backoff time if it
+     *                      is available.
+     *
+     * @return              LORAWAN_STATUS_OK if the meta-data regarding backoff is available,
+     *                      otherwise LORAWAN_STATUS_METADATA_NOT_AVAILABLE is returned.
+     *
+     */
+    virtual lorawan_status_t get_backoff_metadata(int &backoff);
+
+    /** Cancel outgoing transmission
+     *
+     * This API is used to cancel any outstanding transmission in the TX pipe.
+     * If an event for transmission is not already queued at the end of backoff timer,
+     * the system can cancel the outstanding outgoing packet. Otherwise, the system is
+     * busy sending and can't be held back. The system will not try to re-send if the
+     * outgoing message was a CONFIRMED message even if the ack is not received.
+     *
+     * @return              LORAWAN_STATUS_OK if the sending is cancelled.
+     *                      LORAWAN_STATUS_BUSY otherwise.
+     *
+     */
+    virtual lorawan_status_t cancel_sending(void);
+
+    void lock(void)
+    {
+        _lw_stack.lock();
+    }
+    void unlock(void)
+    {
+        _lw_stack.unlock();
+    }
+
+
 private:
-    bool _link_check_requested;
+    typedef mbed::ScopedLock<LoRaWANInterface> Lock;
+
+    LoRaWANStack _lw_stack;
+
+    /** PHY object if created by LoRaWANInterface
+     *
+     * PHY object if LoRaWANInterface has created it.
+     * If PHY object is provided by the application, this pointer is NULL.
+     */
+    LoRaPHY *_default_phy;
 };
 
 #endif /* LORAWANINTERFACE_H_ */

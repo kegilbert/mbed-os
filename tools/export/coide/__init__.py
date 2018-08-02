@@ -15,6 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 from os.path import splitext, basename
+from os import remove
 
 from tools.export.exporters import Exporter, deprecated_exporter
 
@@ -87,7 +88,7 @@ class CoIDE(Exporter):
                 })
 
         libraries = []
-        for lib in self.resources.libraries:
+        for lib in self.libraries:
             l, _ = splitext(basename(lib))
             libraries.append(l[3:])
 
@@ -109,3 +110,7 @@ class CoIDE(Exporter):
 
         # Project file
         self.gen_file('coide/%s.coproj.tmpl' % target, ctx, '%s.coproj' % self.project_name)
+
+    @staticmethod
+    def clean(project_name):
+        remove('%s.coproj' % project_name)

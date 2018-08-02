@@ -1,8 +1,12 @@
+from __future__ import print_function, absolute_import
+from builtins import str
+
 import os
 import copy
+import shutil
 
 from os.path import relpath, join, exists, dirname, basename
-from os import makedirs
+from os import makedirs, remove
 from json import load
 
 from tools.export.exporters import Exporter, apply_supported_whitelist
@@ -31,31 +35,6 @@ class GNUARMNetbeans(Exporter):
     @staticmethod
     def prepare_sys_lib(libname):
         return "-l" + libname
-
-    def toolchain_flags(self, toolchain):
-        """Returns a dictionary of toolchain flags.
-        Keys of the dictionary are:
-        cxx_flags    - c++ flags
-        c_flags      - c flags
-        ld_flags     - linker flags
-        asm_flags    - assembler flags
-        common_flags - common options
-
-        The difference from the above is that it takes a parameter.
-        """
-
-        # Note: use the config options from the currently selected toolchain.
-        config_header = self.toolchain.get_config_header()
-
-        flags = {key + "_flags": copy.deepcopy(value) for key, value
-                 in toolchain.flags.iteritems()}
-        if config_header:
-            config_header = relpath(config_header,
-                                    self.resources.file_basepath[config_header])
-            header_options = self.toolchain.get_config_option(config_header)
-            flags['c_flags'] += header_options
-            flags['cxx_flags'] += header_options
-        return flags
 
     @staticmethod
     def get_defines_and_remove_from_flags(flags_in, str_key):
@@ -129,13 +108,8 @@ class GNUARMNetbeans(Exporter):
         # Convert all Backslashes to Forward Slashes
         self.resources.win_to_unix()
 
-        print 'Include folders: {0}'.format(len(self.resources.inc_dirs))
-
-        print 'Symbols: {0}'.format(len(self.toolchain.get_symbols()))
-
         self.ld_script = self.filter_dot(
             self.resources.linker_script)
-        print 'Linker script: {0}'.format(self.ld_script)
 
         # Read in all profiles, we'll extract compiler options.
         profiles = self.get_all_profiles()
@@ -156,9 +130,6 @@ class GNUARMNetbeans(Exporter):
             opts['id'] = prof_id
             opts['name'] = opts['id'].capitalize()
 
-            print
-            print 'Build configuration: {0}'.format(opts['name'])
-
             profile = profiles[prof_id]
 
             # A small hack, do not bother with src_path again,
@@ -170,12 +141,6 @@ class GNUARMNetbeans(Exporter):
                 src_paths, "", target_name, self.TOOLCHAIN, build_profile=[profile])
 
             flags = self.toolchain_flags(toolchain)
-
-            print 'Common flags:', ' '.join(flags['common_flags'])
-            print 'C++ flags:', ' '.join(flags['cxx_flags'])
-            print 'C flags:', ' '.join(flags['c_flags'])
-            print 'ASM flags:', ' '.join(flags['asm_flags'])
-            print 'Linker flags:', ' '.join(flags['ld_flags'])
 
             opts['defines'] = self.get_defines_and_remove_from_flags(flags, 'common_flags')
             opts['forced_includes'] = self.get_includes_and_remove_from_flags(flags, 'common_flags')
@@ -257,12 +222,6 @@ class GNUARMNetbeans(Exporter):
         """
         jinja_ctx = self.create_jinja_ctx()
 
-        print
-        print 'Create a GNU ARM Netbeans C++ managed project'
-        print 'Project name: {0}'.format(self.project_name)
-        print 'Target: {0}'.format(self.toolchain.target.name)
-        print 'Toolchain: {0}'.format(self.TOOLCHAIN)
-
         if not exists(join(self.export_dir, 'nbproject')):
             makedirs(join(self.export_dir, 'nbproject'))
 
@@ -272,8 +231,12 @@ class GNUARMNetbeans(Exporter):
                                    '.mbedignore')
         self.gen_file('nb/Makefile.tmpl', jinja_ctx, 'Makefile')
 
-        print
-        print 'Done. Import the \'{0}\' project in Netbeans.'.format(self.project_name)
+        print('Done. Import the \'{0}\' project in Netbeans.'.format(self.project_name))
+
+    @staticmethod
+    def clean(_):
+        shutil.rmtree("nbproject")
+        remove("Makefile")
 
     # -------------------------------------------------------------------------
 

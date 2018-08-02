@@ -23,6 +23,10 @@
   #error [NOT_SUPPORTED] test not supported
 #endif
 
+#if !DEVICE_USTICKER
+  #error [NOT_SUPPORTED] test not supported
+#endif
+
 using utest::v1::Case;
 
 extern uint32_t mbed_heap_size;
@@ -32,6 +36,8 @@ volatile bool thread_should_continue = true;
 #define THREAD_MALLOC_SIZE  100
 
 #if defined(__CORTEX_A9)
+#define THREAD_STACK_SIZE   512
+#elif defined(__CORTEX_M23) || defined(__CORTEX_M33)
 #define THREAD_STACK_SIZE   512
 #else
 #define THREAD_STACK_SIZE   256

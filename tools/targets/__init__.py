@@ -30,24 +30,41 @@ from tools.paths import TOOLS_BOOTLOADERS
 from tools.utils import json_file_to_dict
 
 __all__ = ["target", "TARGETS", "TARGET_MAP", "TARGET_NAMES", "CORE_LABELS",
-           "HookError", "generate_py_target", "Target",
+           "CORE_ARCH", "HookError", "generate_py_target", "Target",
            "CUMULATIVE_ATTRIBUTES", "get_resolution_order"]
 
 CORE_LABELS = {
-   "Cortex-M0" : ["M0", "CORTEX_M", "LIKE_CORTEX_M0", "CORTEX"],
-   "Cortex-M0+": ["M0P", "CORTEX_M", "LIKE_CORTEX_M0", "CORTEX"],
-   "Cortex-M1" : ["M1", "CORTEX_M", "LIKE_CORTEX_M1", "CORTEX"],
-   "Cortex-M3" : ["M3", "CORTEX_M", "LIKE_CORTEX_M3", "CORTEX"],
-   "Cortex-M4" : ["M4", "CORTEX_M", "RTOS_M4_M7", "LIKE_CORTEX_M4", "CORTEX"],
-   "Cortex-M4F" : ["M4", "CORTEX_M", "RTOS_M4_M7", "LIKE_CORTEX_M4", "CORTEX"],
-   "Cortex-M7" : ["M7", "CORTEX_M", "RTOS_M4_M7", "LIKE_CORTEX_M7", "CORTEX"],
-   "Cortex-M7F" : ["M7", "CORTEX_M", "RTOS_M4_M7", "LIKE_CORTEX_M7", "CORTEX"],
-   "Cortex-M7FD" : ["M7", "CORTEX_M", "RTOS_M4_M7", "LIKE_CORTEX_M7", "CORTEX"],
-   "Cortex-A9" : ["A9", "CORTEX_A", "LIKE_CORTEX_A9", "CORTEX"],
+    "Cortex-M0": ["M0", "CORTEX_M", "LIKE_CORTEX_M0", "CORTEX"],
+    "Cortex-M0+": ["M0P", "CORTEX_M", "LIKE_CORTEX_M0", "CORTEX"],
+    "Cortex-M1": ["M1", "CORTEX_M", "LIKE_CORTEX_M1", "CORTEX"],
+    "Cortex-M3": ["M3", "CORTEX_M", "LIKE_CORTEX_M3", "CORTEX"],
+    "Cortex-M4": ["M4", "CORTEX_M", "RTOS_M4_M7", "LIKE_CORTEX_M4", "CORTEX"],
+    "Cortex-M4F": ["M4", "CORTEX_M", "RTOS_M4_M7", "LIKE_CORTEX_M4", "CORTEX"],
+    "Cortex-M7": ["M7", "CORTEX_M", "RTOS_M4_M7", "LIKE_CORTEX_M7", "CORTEX"],
+    "Cortex-M7F": ["M7", "CORTEX_M", "RTOS_M4_M7", "LIKE_CORTEX_M7", "CORTEX"],
+    "Cortex-M7FD": ["M7", "CORTEX_M", "RTOS_M4_M7", "LIKE_CORTEX_M7", "CORTEX"],
+    "Cortex-A9": ["A9", "CORTEX_A", "LIKE_CORTEX_A9", "CORTEX"],
     "Cortex-M23": ["M23", "CORTEX_M", "LIKE_CORTEX_M23", "CORTEX"],
-    "Cortex-M23-NS": ["M23", "CORTEX_M", "LIKE_CORTEX_M23", "CORTEX"],
+    "Cortex-M23-NS": ["M23", "M23_NS", "CORTEX_M", "LIKE_CORTEX_M23", "CORTEX"],
     "Cortex-M33": ["M33", "CORTEX_M", "LIKE_CORTEX_M33", "CORTEX"],
-    "Cortex-M33-NS": ["M33", "CORTEX_M", "LIKE_CORTEX_M33", "CORTEX"]
+    "Cortex-M33-NS": ["M33", "M33_NS", "CORTEX_M", "LIKE_CORTEX_M33", "CORTEX"]
+}
+
+CORE_ARCH = {
+    "Cortex-M0": 6,
+    "Cortex-M0+": 6,
+    "Cortex-M1": 6,
+    "Cortex-M3": 7,
+    "Cortex-M4": 7,
+    "Cortex-M4F": 7,
+    "Cortex-M7": 7,
+    "Cortex-M7F": 7,
+    "Cortex-M7FD": 7,
+    "Cortex-A9": 7,
+    "Cortex-M23": 8,
+    "Cortex-M23-NS": 8,
+    "Cortex-M33": 8,
+    "Cortex-M33-NS": 8,
 }
 
 ################################################################################
@@ -370,7 +387,7 @@ class LPCTargetCode(object):
     @staticmethod
     def lpc_patch(t_self, resources, elf, binf):
         """Patch an elf file"""
-        t_self.debug("LPC Patch: %s" % os.path.split(binf)[1])
+        t_self.notify.debug("LPC Patch: %s" % os.path.split(binf)[1])
         patch(binf)
 
 class LPC4088Code(object):
@@ -404,7 +421,7 @@ class LPC4088Code(object):
         # file to 'binf'
         shutil.rmtree(binf, True)
         os.rename(binf + '.temp', binf)
-        t_self.debug("Generated custom binary file (internal flash + SPIFI)")
+        t_self.notify.debug("Generated custom binary file (internal flash + SPIFI)")
         LPCTargetCode.lpc_patch(t_self, resources, elf, binf)
 
 class TEENSY3_1Code(object):
@@ -471,8 +488,8 @@ class MCU_NRF51Code(object):
             in t_self.target.EXPECTED_SOFTDEVICES_WITH_OFFSETS:
             for hexf in resources.hex_files:
                 if hexf.find(softdevice_and_offset_entry['name']) != -1:
-                    t_self.debug("SoftDevice file found %s."
-                                 % softdevice_and_offset_entry['name'])
+                    t_self.notify.debug("SoftDevice file found %s."
+                                        % softdevice_and_offset_entry['name'])
                     sdf = hexf
 
                 if sdf is not None:
@@ -481,7 +498,7 @@ class MCU_NRF51Code(object):
                 break
 
         if sdf is None:
-            t_self.debug("Hex file not found. Aborting.")
+            t_self.notify.debug("Hex file not found. Aborting.")
             return
 
         # Look for bootloader file that matches this soft device or bootloader
@@ -490,13 +507,13 @@ class MCU_NRF51Code(object):
         if t_self.target.MERGE_BOOTLOADER is True:
             for hexf in resources.hex_files:
                 if hexf.find(t_self.target.OVERRIDE_BOOTLOADER_FILENAME) != -1:
-                    t_self.debug("Bootloader file found %s."
-                                 % t_self.target.OVERRIDE_BOOTLOADER_FILENAME)
+                    t_self.notify.debug("Bootloader file found %s."
+                                        % t_self.target.OVERRIDE_BOOTLOADER_FILENAME)
                     blf = hexf
                     break
                 elif hexf.find(softdevice_and_offset_entry['boot']) != -1:
-                    t_self.debug("Bootloader file found %s."
-                                 % softdevice_and_offset_entry['boot'])
+                    t_self.notify.debug("Bootloader file found %s."
+                                        % softdevice_and_offset_entry['boot'])
                     blf = hexf
                     break
 
@@ -510,14 +527,16 @@ class MCU_NRF51Code(object):
             binh.loadbin(binf, softdevice_and_offset_entry['offset'])
 
         if t_self.target.MERGE_SOFT_DEVICE is True:
-            t_self.debug("Merge SoftDevice file %s"
-                         % softdevice_and_offset_entry['name'])
+            t_self.notify.debug("Merge SoftDevice file %s"
+                                % softdevice_and_offset_entry['name'])
             sdh = IntelHex(sdf)
+            sdh.start_addr = None
             binh.merge(sdh)
 
         if t_self.target.MERGE_BOOTLOADER is True and blf is not None:
-            t_self.debug("Merge BootLoader file %s" % blf)
+            t_self.notify.debug("Merge BootLoader file %s" % blf)
             blh = IntelHex(blf)
+            blh.start_addr = None
             binh.merge(blh)
 
         with open(binf.replace(".bin", ".hex"), "w") as fileout:

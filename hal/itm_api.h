@@ -1,3 +1,5 @@
+/** \addtogroup hal */
+/** @{*/
 /* mbed Microcontroller Library
  * Copyright (c) 2017 ARM Limited
  *
@@ -20,14 +22,14 @@
 #if defined(DEVICE_ITM)
 
 #include <stdint.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /**
- * @defgroup hal_itm_port ITM Stimulus Ports
- *
+ * \defgroup itm_hal Instrumented Trace Macrocell HAL API
  * @{
  */
 
@@ -35,24 +37,17 @@ enum {
     ITM_PORT_SWO = 0
 };
 
-/**@}*/
-
-/**
- * \defgroup itm_hal Instrumented Trace Macrocell HAL API
- * @{
- */
-
 /**
  * @brief      Target specific initialization function.
- *             This function is responsible for initializing and configuring 
- *             the debug clock for the ITM and setting up the SWO pin for 
+ *             This function is responsible for initializing and configuring
+ *             the debug clock for the ITM and setting up the SWO pin for
  *             debug output.
- *             
+ *
  *             The only Cortex-M register that should be modified is the clock
  *             prescaler in TPI->ACPR.
- *             
- *             The generic mbed_itm_init initialization function will setup: 
- *             
+ *
+ *             The generic mbed_itm_init initialization function will setup:
+ *
  *                  ITM->LAR
  *                  ITM->TPR
  *                  ITM->TCR
@@ -60,7 +55,7 @@ enum {
  *                  TPI->SPPR
  *                  TPI->FFCR
  *                  DWT->CTRL
- *                  
+ *
  *             for SWO output on stimulus port 0.
  */
 void itm_init(void);
@@ -74,11 +69,25 @@ void mbed_itm_init(void);
  * @brief      Send data over ITM stimulus port.
  *
  * @param[in]  port  The stimulus port to send data over.
- * @param[in]  data  The data to send.
+ * @param[in]  data  The 32-bit data to send.
+ *
+ * The data is written as a single 32-bit write to the port.
  *
  * @return     value of data sent.
  */
 uint32_t mbed_itm_send(uint32_t port, uint32_t data);
+
+/**
+ * @brief      Send a block of data over ITM stimulus port.
+ *
+ * @param[in]  port  The stimulus port to send data over.
+ * @param[in]  data  The block of data to send.
+ * @param[in]  len   The number of bytes of data to send.
+ *
+ * The data is written using multiple appropriately-sized port accesses for
+ * efficient transfer.
+ */
+void mbed_itm_send_block(uint32_t port, const void *data, size_t len);
 
 /**@}*/
 
@@ -89,3 +98,5 @@ uint32_t mbed_itm_send(uint32_t port, uint32_t data);
 #endif
 
 #endif /* MBED_ITM_API_H */
+
+/**@}*/

@@ -204,8 +204,7 @@ static const uint8_t max_payloads_CN470[] = {51, 51, 51, 115, 222, 222};
 static const uint8_t max_payloads_with_repeater_CN470[] = {51, 51, 51, 115, 222, 222};
 
 
-LoRaPHYCN470::LoRaPHYCN470(LoRaWANTimeHandler &lora_time)
-        : LoRaPHY(lora_time)
+LoRaPHYCN470::LoRaPHYCN470()
 {
     bands[0] = CN470_BAND0;
 
@@ -252,7 +251,7 @@ LoRaPHYCN470::LoRaPHYCN470(LoRaWANTimeHandler &lora_time)
     phy_params.payloads.table = (void *) max_payloads_CN470;
     phy_params.payloads.size = 6;
     phy_params.payloads_with_repeater.table = (void *)max_payloads_with_repeater_CN470;
-    phy_params.payloads.size = 6;
+    phy_params.payloads_with_repeater.size = 6;
 
     // dwell time setting
     phy_params.ul_dwell_time_setting = 0;
@@ -303,7 +302,7 @@ LoRaPHYCN470::~LoRaPHYCN470()
 {
 }
 
-bool LoRaPHYCN470::rx_config(rx_config_params_t* config, int8_t* datarate)
+bool LoRaPHYCN470::rx_config(rx_config_params_t* config)
 {
     int8_t dr = config->datarate;
     uint8_t max_payload = 0;
@@ -349,7 +348,6 @@ bool LoRaPHYCN470::rx_config(rx_config_params_t* config, int8_t* datarate)
     _radio->set_max_payload_length(MODEM_LORA, max_payload + LORA_MAC_FRMPAYLOAD_OVERHEAD);
     _radio->unlock();
 
-    *datarate = (uint8_t) dr;
     return true;
 }
 

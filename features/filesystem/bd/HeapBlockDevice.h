@@ -118,17 +118,25 @@ public:
      */
     virtual bd_size_t get_read_size() const;
 
-    /** Get the size of a programable block
+    /** Get the size of a programmable block
      *
-     *  @return         Size of a programable block in bytes
+     *  @return         Size of a programmable block in bytes
      */
     virtual bd_size_t get_program_size() const;
 
-    /** Get the size of a eraseable block
+    /** Get the size of an erasable block
      *
-     *  @return         Size of a eraseable block in bytes
+     *  @return         Size of an erasable block in bytes
      */
     virtual bd_size_t get_erase_size() const;
+
+    /** Get the size of an erasable block given address
+     *
+     *  @param addr     Address within the erasable block
+     *  @return         Size of an erasable block in bytes
+     *  @note Must be a multiple of the program size
+     */
+    virtual bd_size_t get_erase_size(bd_addr_t addr) const;
 
     /** Get the total size of the underlying device
      *
@@ -142,6 +150,7 @@ private:
     bd_size_t _erase_size;
     bd_size_t _count;
     uint8_t **_blocks;
+    uint32_t _init_ref_count;
 };
 
 

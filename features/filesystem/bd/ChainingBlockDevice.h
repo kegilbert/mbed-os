@@ -64,7 +64,7 @@ public:
     template <size_t Size>
     ChainingBlockDevice(BlockDevice *(&bds)[Size])
         : _bds(bds), _bd_count(sizeof(bds) / sizeof(bds[0]))
-        , _read_size(0), _program_size(0), _erase_size(0), _size(0)
+        , _read_size(0), _program_size(0), _erase_size(0), _size(0),  _init_ref_count(0)
     {
     }
 
@@ -128,19 +128,27 @@ public:
      */
     virtual bd_size_t get_read_size() const;
 
-    /** Get the size of a programable block
+    /** Get the size of a programmable block
      *
-     *  @return         Size of a programable block in bytes
+     *  @return         Size of a programmable block in bytes
      *  @note Must be a multiple of the read size
      */
     virtual bd_size_t get_program_size() const;
 
-    /** Get the size of a eraseable block
+    /** Get the size of an eraseable block
      *
-     *  @return         Size of a eraseable block in bytes
+     *  @return         Size of an erasable block in bytes
      *  @note Must be a multiple of the program size
      */
     virtual bd_size_t get_erase_size() const;
+
+    /** Get the size of an erasable block given address
+     *
+     *  @param addr     Address within the erasable block
+     *  @return         Size of an erasable block in bytes
+     *  @note Must be a multiple of the program size
+     */
+    virtual bd_size_t get_erase_size(bd_addr_t addr) const;
 
     /** Get the value of storage when erased
      *
@@ -167,6 +175,7 @@ protected:
     bd_size_t _erase_size;
     bd_size_t _size;
     int _erase_value;
+    uint32_t _init_ref_count;
 };
 
 

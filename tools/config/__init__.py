@@ -30,7 +30,9 @@ from jinja2 import FileSystemLoader, StrictUndefined
 from jinja2.environment import Environment
 from jsonschema import Draft4Validator, RefResolver
 
-from ..utils import json_file_to_dict, intelhex_offset
+from ..resources import FileType
+from ..utils import (json_file_to_dict, intelhex_offset, integer,
+                     NotSupportedException)
 from ..arm_pack_manager import Cache
 from ..targets import (CUMULATIVE_ATTRIBUTES, TARGET_MAP, generate_py_target,
                        get_resolution_order, Target)
@@ -40,14 +42,53 @@ try:
 except NameError:
     unicode = str
 PATH_OVERRIDES = set(["target.bootloader_img"])
-BOOTLOADER_OVERRIDES = set(["target.bootloader_img", "target.restrict_size",
-                            "target.mbed_app_start", "target.mbed_app_size"])
+ROM_OVERRIDES = set([
+    # managed BL
+    "target.bootloader_img", "target.restrict_size",
+    "target.header_format", "target.header_offset",
+    "target.app_offset",
+
+    # unmanaged BL
+    "target.mbed_app_start", "target.mbed_app_size",
+
+    # both
+    "target.mbed_rom_start", "target.mbed_rom_size",
+])
+RAM_OVERRIDES = set([
+    # both
+    "target.mbed_ram_start", "target.mbed_ram_size",
+])
+
+BOOTLOADER_OVERRIDES = ROM_OVERRIDES | RAM_OVERRIDES
+
+
+ALLOWED_FEATURES = [
+    "UVISOR", "BLE", "CLIENT", "IPV4", "LWIP", "COMMON_PAL", "STORAGE",
+    "NANOSTACK","CRYPTOCELL310",
+    # Nanostack configurations
+    "LOWPAN_BORDER_ROUTER", "LOWPAN_HOST", "LOWPAN_ROUTER", "NANOSTACK_FULL",
+    "THREAD_BORDER_ROUTER", "THREAD_END_DEVICE", "THREAD_ROUTER",
+    "ETHERNET_HOST",
+]
 
 # Base class for all configuration exceptions
 class ConfigException(Exception):
     """Config system only exception. Makes it easier to distinguish config
     errors"""
     pass
+
+class UndefinedParameter(ConfigException):
+    def __init__(self, param, name, kind, label):
+        self.param = param
+        self.name = name
+        self.kind = kind
+        self.label = label
+
+    def __str__(self):
+        return "Attempt to override undefined parameter '{}' in '{}'".format(
+            self.param,
+            ConfigParameter.get_display_name(self.name, self.kind, self.label),
+        )
 
 class ConfigParameter(object):
     """This class keeps information about a single configuration parameter"""
@@ -113,7 +154,7 @@ class ConfigParameter(object):
                                       unit_name, unit_kind, label)))
         prefix = temp[0]
         # Check if the given parameter prefix matches the expected prefix
-        if (unit_kind == "library" and prefix != unit_name) or \
+        if (unit_kind == "library" and prefix not in [unit_name, "target"]) or \
            (unit_kind == "target" and prefix != "target"):
             raise ConfigException(
                 "Invalid prefix '%s' for parameter name '%s' in '%s'" %
@@ -351,6 +392,7 @@ def _process_macros(mlist, macros, unit_name, unit_kind):
 
 
 Region = namedtuple("Region", "name start size active filename")
+RamRegion = namedtuple("RamRegion", "name start size active")
 
 class Config(object):
     """'Config' implements the mbed configuration mechanism"""
@@ -362,13 +404,6 @@ class Config(object):
 
     __unused_overrides = set(["target.bootloader_img", "target.restrict_size",
                               "target.mbed_app_start", "target.mbed_app_size"])
-
-    # Allowed features in configurations
-    __allowed_features = [
-        "UVISOR", "BLE", "CLIENT", "IPV4", "LWIP", "COMMON_PAL", "STORAGE", "NANOSTACK",
-        # Nanostack configurations
-        "LOWPAN_BORDER_ROUTER", "LOWPAN_HOST", "LOWPAN_ROUTER", "NANOSTACK_FULL", "THREAD_BORDER_ROUTER", "THREAD_END_DEVICE", "THREAD_ROUTER", "ETHERNET_HOST"
-        ]
 
     @classmethod
     def find_app_config(cls, top_level_dirs):
@@ -383,6 +418,14 @@ class Config(object):
                 else:
                     app_config_location = full_path
         return app_config_location
+
+    def format_validation_error(self, error, path):
+        if error.context:
+            return self.format_validation_error(error.context[0], path)
+        else:
+            return "in {} element {}: {}".format(
+                path, ".".join(p for p in error.absolute_path),
+                error.message.replace('u\'','\''))
 
     def __init__(self, tgt, top_level_dirs=None, app_config=None):
         """Construct a mbed configuration
@@ -402,6 +445,7 @@ class Config(object):
         search for a configuration file).
         """
         config_errors = []
+        self.config_errors = []
         self.app_config_location = app_config
         if self.app_config_location is None and top_level_dirs:
             self.app_config_location = self.find_app_config(top_level_dirs)
@@ -430,7 +474,9 @@ class Config(object):
             errors = sorted(validator.iter_errors(self.app_config_data))
 
             if errors:
-                raise ConfigException(",".join(x.message for x in errors))
+                raise ConfigException("; ".join(
+                    self.format_validation_error(x, self.app_config_location)
+                    for x in errors))
 
         # Update the list of targets with the ones defined in the application
         # config, if applicable
@@ -477,8 +523,7 @@ class Config(object):
             try:
                 cfg = json_file_to_dict(config_file)
             except ValueError as exc:
-                sys.stderr.write(str(exc) + "\n")
-                continue
+                raise ConfigException(str(exc))
 
             # Validate the format of the JSON file based on the schema_lib.json
             schema_root = os.path.dirname(os.path.abspath(__file__))
@@ -494,7 +539,9 @@ class Config(object):
             errors = sorted(validator.iter_errors(cfg))
 
             if errors:
-                raise ConfigException(",".join(x.message for x in errors))
+                raise ConfigException("; ".join(
+                    self.format_validation_error(x, config_file)
+                    for x in errors))
 
             cfg["__config_path"] = full_path
 
@@ -510,7 +557,16 @@ class Config(object):
     @property
     def has_regions(self):
         """Does this config have regions defined?"""
-        for override in BOOTLOADER_OVERRIDES:
+        for override in ROM_OVERRIDES:
+            _, attr = override.split(".")
+            if getattr(self.target, attr, None):
+                return True
+        return False
+
+    @property
+    def has_ram_regions(self):
+        """Does this config have regions defined?"""
+        for override in RAM_OVERRIDES:
             _, attr = override.split(".")
             if getattr(self.target, attr, None):
                 return True
@@ -530,10 +586,8 @@ class Config(object):
             return sectors
         raise ConfigException("No sector info available")
 
-    @property
-    def regions(self):
-        """Generate a list of regions from the config"""
-        if not self.target.bootloader_supported:
+    def _get_cmsis_part(self):
+        if not getattr(self.target, "bootloader_supported", False):
             raise ConfigException("Bootloader not supported on this target.")
         if not hasattr(self.target, "device_name"):
             raise ConfigException("Bootloader not supported on this target: "
@@ -543,30 +597,103 @@ class Config(object):
             raise ConfigException("Bootloader not supported on this target: "
                                   "targets.json `device_name` not found in "
                                   "arm_pack_manager index.")
-        cmsis_part = cache.index[self.target.device_name]
+        return cache.index[self.target.device_name]
+
+    def _get_mem_specs(self, memories, cmsis_part, exception_text):
+        for memory in memories:
+            try:
+                size = cmsis_part['memory'][memory]['size']
+                start = cmsis_part['memory'][memory]['start']
+                return (start, size)
+            except KeyError:
+                continue
+        raise ConfigException(exception_text)
+
+    @property
+    def rom(self):
+        """Get rom information as a pair of start_addr, size"""
+        # Override rom_start/rom_size
+        #
+        # This is usually done for a target which:
+        # 1. Doesn't support CMSIS pack, or
+        # 2. Supports TrustZone and user needs to change its flash partition
+        cmsis_part = self._get_cmsis_part()
+        rom_start, rom_size = self._get_mem_specs(
+            ["IROM1", "PROGRAM_FLASH"],
+            cmsis_part,
+            "Not enough information in CMSIS packs to build a bootloader "
+            "project"
+        )
+        rom_start = int(getattr(self.target, "mbed_rom_start", False) or rom_start, 0)
+        rom_size = int(getattr(self.target, "mbed_rom_size", False) or rom_size, 0)
+        return (rom_start, rom_size)
+
+    @property
+    def ram_regions(self):
+        """Generate a list of ram regions from the config"""
+        cmsis_part = self._get_cmsis_part()
+        ram_start, ram_size = self._get_mem_specs(
+            ["IRAM1", "SRAM0"],
+            cmsis_part,
+            "Not enough information in CMSIS packs to build a ram sharing project"
+        )
+        # Override ram_start/ram_size
+        #
+        # This is usually done for a target which:
+        # 1. Doesn't support CMSIS pack, or
+        # 2. Supports TrustZone and user needs to change its flash partition
+        ram_start = getattr(self.target, "mbed_ram_start", False) or ram_start
+        ram_size = getattr(self.target, "mbed_ram_size", False) or ram_size
+        return [RamRegion("application_ram", int(ram_start, 0), int(ram_size, 0), True)]
+
+    @property
+    def regions(self):
+        """Generate a list of regions from the config"""
         if  ((self.target.bootloader_img or self.target.restrict_size) and
              (self.target.mbed_app_start or self.target.mbed_app_size)):
             raise ConfigException(
                 "target.bootloader_img and target.restirct_size are "
                 "incompatible with target.mbed_app_start and "
                 "target.mbed_app_size")
-        try:
-            rom_size = int(cmsis_part['memory']['IROM1']['size'], 0)
-            rom_start = int(cmsis_part['memory']['IROM1']['start'], 0)
-        except KeyError:
-            try:
-                rom_size = int(cmsis_part['memory']['PROGRAM_FLASH']['size'], 0)
-                rom_start = int(cmsis_part['memory']['PROGRAM_FLASH']['start'], 0)
-            except KeyError:
-                raise ConfigException("Not enough information in CMSIS packs to "
-                                      "build a bootloader project")
         if self.target.bootloader_img or self.target.restrict_size:
-            return self._generate_bootloader_build(rom_start, rom_size)
-        elif self.target.mbed_app_start or self.target.mbed_app_size:
-            return self._generate_linker_overrides(rom_start, rom_size)
+            return self._generate_bootloader_build(*self.rom)
         else:
+            return self._generate_linker_overrides(*self.rom)
+
+    @staticmethod
+    def header_member_size(member):
+        _, _, subtype, _ = member
+        try:
+            return int(subtype[:-2]) // 8
+        except:
+            if subtype.startswith("CRCITT32"):
+                return 32 // 8
+            elif subtype == "SHA256":
+                return 256 // 8
+            elif subtype == "SHA512":
+                return 512 // 8
+            else:
+                raise ValueError("target.header_format: subtype %s is not "
+                                 "understood" % subtype)
+
+    @staticmethod
+    def _header_size(format):
+        return sum(Config.header_member_size(m) for m in format)
+
+    def _make_header_region(self, start, header_format, offset=None):
+        size = self._header_size(header_format)
+        region = Region("header", start, size, False, None)
+        start += size
+        start = ((start + 7) // 8) * 8
+        return (start, region)
+
+    @staticmethod
+    def _assign_new_offset(rom_start, start, new_offset, region_name):
+        newstart = rom_start + integer(new_offset, 0)
+        if newstart < start:
             raise ConfigException(
-                "Bootloader build requested but no bootlader configuration")
+                "Can not place % region inside previous region" % region_name)
+        return newstart
 
     def _generate_bootloader_build(self, rom_start, rom_size):
         start = rom_start
@@ -588,14 +715,34 @@ class Config(object):
             yield Region("bootloader", rom_start, part_size, False,
                          filename)
             start = rom_start + part_size
+            if self.target.header_format:
+                if self.target.header_offset:
+                    start = self._assign_new_offset(
+                        rom_start, start, self.target.header_offset, "header")
+                start, region = self._make_header_region(
+                    start, self.target.header_format)
+                yield region._replace(filename=self.target.header_format)
         if self.target.restrict_size is not None:
             new_size = int(self.target.restrict_size, 0)
             new_size = Config._align_floor(start + new_size, self.sectors) - start
             yield Region("application", start, new_size, True, None)
             start += new_size
+            if self.target.header_format and not self.target.bootloader_img:
+                if self.target.header_offset:
+                    start = self._assign_new_offset(
+                        rom_start, start, self.target.header_offset, "header")
+                start, region = self._make_header_region(
+                    start, self.target.header_format)
+                yield region
+            if self.target.app_offset:
+                start = self._assign_new_offset(
+                    rom_start, start, self.target.app_offset, "application")
             yield Region("post_application", start, rom_end - start,
                          False, None)
         else:
+            if self.target.app_offset:
+                start = self._assign_new_offset(
+                    rom_start, start, self.target.app_offset, "application")
             yield Region("application", start, rom_end - start,
                          True, None)
         if start > rom_start + rom_size:
@@ -657,7 +804,6 @@ class Config(object):
         unit_name - the unit (library/application) that defines this parameter
         unit_kind - the kind of the unit ("library" or "application")
         """
-        self.config_errors = []
         _process_config_parameters(data.get("config", {}), params, unit_name,
                                    unit_kind)
         for label, overrides in data.get("target_overrides", {}).items():
@@ -726,13 +872,8 @@ class Config(object):
                         continue
                     else:
                         self.config_errors.append(
-                            ConfigException(
-                                "Attempt to override undefined parameter" +
-                                (" '%s' in '%s'"
-                                 % (full_name,
-                                    ConfigParameter.get_display_name(unit_name,
-                                                                     unit_kind,
-                                                                     label)))))
+                            UndefinedParameter(
+                                full_name, unit_name, unit_kind, label))
 
         for cumulatives in self.cumulative_overrides.values():
             cumulatives.update_target(self.target)
@@ -780,29 +921,25 @@ class Config(object):
                     continue
                 if (full_name not in params) or \
                    (params[full_name].defined_by[7:] not in rel_names):
-                    raise ConfigException(
-                        "Attempt to override undefined parameter '%s' in '%s'"
-                        % (name,
-                           ConfigParameter.get_display_name(tname, "target")))
+                    raise UndefinedParameter(name, tname, "target", "")
                 # Otherwise update the value of the parameter
                 params[full_name].set_value(val, tname, "target")
         return params
 
-    def get_lib_config_data(self):
+    def get_lib_config_data(self, target_data):
         """ Read and interpret configuration data defined by libraries. It is
         assumed that "add_config_files" above was already called and the library
         configuration data exists in self.lib_config_data
 
         Arguments: None
         """
-        all_params, macros = {}, {}
+        macros = {}
         for lib_name, lib_data in self.lib_config_data.items():
-            all_params.update(self._process_config_and_overrides(lib_data, {},
-                                                                 lib_name,
-                                                                 "library"))
+            self._process_config_and_overrides(
+                lib_data, target_data, lib_name, "library")
             _process_macros(lib_data.get("macros", []), macros, lib_name,
                             "library")
-        return all_params, macros
+        return target_data, macros
 
     def get_app_config_data(self, params, macros):
         """ Read and interpret the configuration data defined by the target. The
@@ -832,10 +969,9 @@ class Config(object):
         Arguments: None
         """
         all_params = self.get_target_config_data()
-        lib_params, macros = self.get_lib_config_data()
-        all_params.update(lib_params)
-        self.get_app_config_data(all_params, macros)
-        return all_params, macros
+        lib_params, macros = self.get_lib_config_data(all_params)
+        self.get_app_config_data(lib_params, macros)
+        return lib_params, macros
 
     @staticmethod
     def _check_required_parameters(params):
@@ -909,7 +1045,7 @@ class Config(object):
             .update_target(self.target)
 
         for feature in self.target.features:
-            if feature not in self.__allowed_features:
+            if feature not in ALLOWED_FEATURES:
                 raise ConfigException(
                     "Feature '%s' is not a supported features" % feature)
 
@@ -921,8 +1057,13 @@ class Config(object):
 
         Arguments: None
         """
-        if self.config_errors:
-            raise self.config_errors[0]
+        params, _ = self.get_config_data()
+        for error in self.config_errors:
+            if  (isinstance(error, UndefinedParameter) and
+                 error.param in params):
+                continue
+            else:
+                raise error
         return True
 
 
@@ -942,25 +1083,27 @@ class Config(object):
         """
         # Update configuration files until added features creates no changes
         prev_features = set()
-        self.validate_config()
         while True:
             # Add/update the configuration with any .json files found while
             # scanning
-            self.add_config_files(resources.json_files)
+            self.add_config_files(
+                f.path for f in resources.get_file_refs(FileType.JSON)
+            )
 
             # Add features while we find new ones
             features = set(self.get_features())
             if features == prev_features:
                 break
 
-            for feature in features:
-                if feature in resources.features:
-                    resources.add(resources.features[feature])
+            resources.add_features(features)
 
             prev_features = features
         self.validate_config()
 
-        return resources
+        if  (hasattr(self.target, "release_versions") and
+             "5" not in self.target.release_versions and
+             "rtos" in self.lib_config_data):
+            raise NotSupportedException("Target does not support mbed OS 5")
 
     @staticmethod
     def config_to_header(config, fname=None):
@@ -981,10 +1124,14 @@ class Config(object):
         Config._check_required_parameters(params)
         params_with_values = [p for p in params.values() if p.value is not None]
         ctx = {
-            "cfg_params" : [(p.macro_name, str(p.value), p.set_by)
-                            for p in params_with_values],
-            "macros": [(m.macro_name, str(m.macro_value or ""), m.defined_by)
-                       for m in macros.values()],
+            "cfg_params": sorted([
+                (p.macro_name, str(p.value), p.set_by)
+                for p in params_with_values
+            ]),
+            "macros": sorted([
+                (m.macro_name, str(m.macro_value or ""), m.defined_by)
+                for m in macros.values()
+            ]),
             "name_len":  max([len(m.macro_name) for m in macros.values()] +
                              [len(m.macro_name) for m in params_with_values]
                              + [0]),

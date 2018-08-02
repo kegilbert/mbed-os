@@ -10,7 +10,6 @@ import os.path
 import sys
 import subprocess
 from shutil import rmtree
-from sets import Set
 
 ROOT = abspath(dirname(dirname(dirname(dirname(__file__)))))
 sys.path.insert(0, ROOT)
@@ -18,10 +17,12 @@ sys.path.insert(0, ROOT)
 from tools.build_api import get_mbed_official_release
 from tools.targets import TARGET_MAP
 from tools.export import EXPORTERS
+from tools.project import EXPORTER_ALIASES
 from tools.toolchains import TOOLCHAINS
 
 SUPPORTED_TOOLCHAINS = list(TOOLCHAINS - set(u'uARM'))
-SUPPORTED_IDES = [exp for exp in EXPORTERS.keys() if exp != "cmsis" and exp != "zip"]
+SUPPORTED_IDES = [exp for exp in EXPORTERS.keys() + EXPORTER_ALIASES.keys()
+                  if exp != "cmsis" and exp != "zip"]
 
 
 def print_list(lst):
@@ -254,11 +255,11 @@ def export_repos(config, ides, targets, examples):
             ides - List of IDES to export to
     """
     results = {}
-    valid_examples = Set(examples)
+    valid_examples = set(examples)
     print("\nExporting example repos....\n")
     for example in config['examples']:
         example_names = [basename(x['repo']) for x in get_repo_list(example)]
-        common_examples = valid_examples.intersection(Set(example_names))
+        common_examples = valid_examples.intersection(set(example_names))
         if not common_examples:
             continue
         export_failures = []
@@ -337,11 +338,11 @@ def compile_repos(config, toolchains, targets, profile, examples):
 
     """
     results = {}
-    valid_examples = Set(examples)
+    valid_examples = set(examples)
     print("\nCompiling example repos....\n")
     for example in config['examples']:
         example_names = [basename(x['repo']) for x in get_repo_list(example)]
-        common_examples = valid_examples.intersection(Set(example_names))
+        common_examples = valid_examples.intersection(set(example_names))
         if not common_examples:
             continue
         failures = []

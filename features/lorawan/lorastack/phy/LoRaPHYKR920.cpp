@@ -241,15 +241,17 @@ static const uint8_t max_payloads_KR920[] = { 51, 51, 51, 115, 242, 242 };
  */
 static const uint8_t max_payloads_with_repeater_KR920[] = { 51, 51, 51, 115, 222, 222 };
 
-LoRaPHYKR920::LoRaPHYKR920(LoRaWANTimeHandler &lora_time)
-    : LoRaPHY(lora_time)
+LoRaPHYKR920::LoRaPHYKR920()
 {
     bands[0] = KR920_BAND0;
 
     // Channels
     channels[0] = KR920_LC1;
+    channels[0].band = 0;
     channels[1] = KR920_LC2;
+    channels[1].band = 0;
     channels[2] = KR920_LC3;
+    channels[2].band = 0;
 
     // Initialize the channels default mask
     default_channel_mask[0] = LC( 1 ) + LC( 2 ) + LC( 3 );
@@ -279,7 +281,7 @@ LoRaPHYKR920::LoRaPHYKR920(LoRaWANTimeHandler &lora_time)
     phy_params.payloads.table = (void *) max_payloads_KR920;
     phy_params.payloads.size = 6;
     phy_params.payloads_with_repeater.table = (void *) max_payloads_with_repeater_KR920;
-    phy_params.payloads.size = 6;
+    phy_params.payloads_with_repeater.size = 6;
 
     // dwell time setting
     phy_params.ul_dwell_time_setting = 0;
@@ -339,7 +341,7 @@ int8_t LoRaPHYKR920::get_max_eirp(uint32_t freq)
 }
 
 
-bool LoRaPHYKR920::verify_frequency(uint32_t freq)
+bool LoRaPHYKR920::verify_frequency_for_band(uint32_t freq, uint8_t band) const
 {
     uint32_t tmp_freq = freq;
 
@@ -404,9 +406,9 @@ bool LoRaPHYKR920::tx_config(tx_config_params_t* config, int8_t* tx_power,
     return true;
 }
 
-bool LoRaPHYKR920::set_next_channel(channel_selection_params_t* params,
-                                    uint8_t* channel, lorawan_time_t* time,
-                                    lorawan_time_t* aggregate_timeoff)
+lorawan_status_t LoRaPHYKR920::set_next_channel(channel_selection_params_t* params,
+                                                uint8_t* channel, lorawan_time_t* time,
+                                                lorawan_time_t* aggregate_timeoff)
 {
     uint8_t next_channel_idx = 0;
     uint8_t nb_enabled_channels = 0;
@@ -419,7 +421,7 @@ bool LoRaPHYKR920::set_next_channel(channel_selection_params_t* params,
         channel_mask[0] |= LC(1) + LC(2) + LC(3);
     }
 
-    if (params->aggregate_timeoff <= _lora_time.get_elapsed_time(params->last_aggregate_tx_time)) {
+    if (params->aggregate_timeoff <= _lora_time->get_elapsed_time(params->last_aggregate_tx_time)) {
         // Reset Aggregated time off
         *aggregate_timeoff = 0;
 
@@ -433,7 +435,7 @@ bool LoRaPHYKR920::set_next_channel(channel_selection_params_t* params,
                                                      enabled_channels, &delay_tx);
     } else {
         delay_tx++;
-        nextTxDelay = params->aggregate_timeoff - _lora_time.get_elapsed_time(params->last_aggregate_tx_time);
+        nextTxDelay = params->aggregate_timeoff - _lora_time->get_elapsed_time(params->last_aggregate_tx_time);
     }
 
     if (nb_enabled_channels > 0) {
@@ -455,26 +457,26 @@ bool LoRaPHYKR920::set_next_channel(channel_selection_params_t* params,
                 *channel = next_channel_idx;
                 *time = 0;
                 _radio->unlock();
-                return true;
+                return LORAWAN_STATUS_OK;
             }
 
             _radio->unlock();
         }
 
-        return false;
+        return LORAWAN_STATUS_NO_FREE_CHANNEL_FOUND;
 
     } else {
 
         if (delay_tx > 0) {
             // Delay transmission due to AggregatedTimeOff or to a band time off
             *time = nextTxDelay;
-            return true;
+            return LORAWAN_STATUS_DUTYCYCLE_RESTRICTED;
         }
 
         // Datarate not supported by any channel, restore defaults
         channel_mask[0] |= LC(1) + LC(2) + LC(3);
         *time = 0;
-        return false;
+        return LORAWAN_STATUS_NO_CHANNEL_FOUND;
     }
 }
 

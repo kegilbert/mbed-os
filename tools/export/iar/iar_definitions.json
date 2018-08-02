@@ -1,4 +1,13 @@
 {
+    "STM32L443RC": {
+        "OGChipSelectEditMenu": "STM32L443RC\tST STM32L443RC"
+    },
+    "STM32L433RC": {
+        "OGChipSelectEditMenu": "STM32L433RC\tST STM32L433RC"
+    },
+    "STM32L496AG": {
+        "OGChipSelectEditMenu": "STM32L496AG\tST STM32L496AG"
+    },
     "STM32L496ZG": {
         "OGChipSelectEditMenu": "STM32L496ZG\tST STM32L496ZG"
     },
@@ -77,9 +86,6 @@
     "MKW41Z512xxx4": {
         "OGChipSelectEditMenu": "MKW41Z512xxx4\tNXP MKW41Z512xxx4"
     },
-    "MIMXRT1052xxx6A": {
-        "OGChipSelectEditMenu": "MIMXRT1052xxx6A\tNXP MIMXRT1052xxx6A"
-    },
     "LPC54114J256BD64": {
         "OGChipSelectEditMenu": "LPC54114J256_M4\tNXP LPC54114J256_M4"
     },
@@ -109,6 +115,9 @@
     },
     "STM32F303RE": {
         "OGChipSelectEditMenu": "STM32F303xE\tST STM32F303xE"
+    },
+    "STM32L151CC": {
+        "OGChipSelectEditMenu": "STM32L151CC\tST STM32L151CC"
     },
     "STM32L152RE": {
         "OGChipSelectEditMenu": "STM32L152xE\tST STM32L152xE"
@@ -200,7 +209,7 @@
     "STM32F091RC": {
         "OGChipSelectEditMenu": "STM32F091RC\tST STM32F091RC"
     },
-    "RZ_A1H": {
+    "R7S72100": {
         "OGChipSelectEditMenu": "R7S721001\tRenesas R7S721001",
         "CoreVariant": 37,
         "GFPUCoreSlave": 37,
@@ -214,7 +223,7 @@
         "GBECoreSlave": 37,
         "NEON":1
     },
-    "GR_LYCHEE": {
+    "R7S72103": {
         "OGChipSelectEditMenu": "R7S721030\tRenesas R7S721030",
         "CoreVariant": 37,
         "GFPUCoreSlave": 37,
@@ -264,5 +273,15 @@
     },
     "ADuCM4050": {
         "OGChipSelectEditMenu": "ADuCM4050\tAnalogDevices ADuCM4050"
+    },
+    "TMPM46BF10FG":{
+        "OGChipSelectEditMenu": "TMPM46BF10FG\tToshiba TMPM46BF10FG",
+        "GFPUCoreSlave": 21,
+        "GBECoreSlave": 21
+    },
+    "TMPM3H6FWFG":{
+        "OGChipSelectEditMenu": "TMPM3H6FWFG\tToshiba TMPM3H6FWFG",
+        "GFPUCoreSlave": 24,
+        "GBECoreSlave": 24
     }
 }
