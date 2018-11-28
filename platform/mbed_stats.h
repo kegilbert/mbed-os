@@ -163,6 +163,8 @@ typedef struct {
     uint32_t ram_size[MBED_MAX_MEM_REGIONS];    /**< Size of all internal RAM memories in target */
     uint32_t rom_start[MBED_MAX_MEM_REGIONS];   /**< Start addresses of all internal ROM memories */
     uint32_t rom_size[MBED_MAX_MEM_REGIONS];    /**< Size of all internal ROM memories in target */
+    uint32_t total_rom_size;                    /**< Total size of all internal ROM memory in target */
+    uint32_t total_ram_size;                    /**< Total size of all internal RAM memory in target */
 } mbed_stats_sys_t;
 
 /**
