@@ -1,0 +1,4 @@
+{
+  "name": "mbed-os-lite",
+  "requires": ["platform", "drivers"]
+}
